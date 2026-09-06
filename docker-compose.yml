@@ -1,0 +1,46 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: retail-pos-nginx
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: retail-pos-app
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:18
+    container_name: retail-pos-postgres
+    environment:
+      POSTGRES_DB: retail_pos
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+  redis:
+    image: redis:8-alpine
+    container_name: retail-pos-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
