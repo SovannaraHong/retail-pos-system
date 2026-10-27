@@ -1,0 +1,23 @@
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+!.env.docker.example
+
+# Laravel
+/vendor/
+/node_modules/
+/public/build/
+/public/storage
+/storage/*.key
+
+# Logs and caches
+*.log
+.phpunit.cache/
+
+# Docker local overrides
+docker-compose.override.yml
+compose.override.yaml
+
+# Local database data
+docker-data/
