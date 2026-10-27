@@ -3,22 +3,22 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
+
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Override;
+use Illuminate\Support\Facades\Storage;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements JWTSubject
 {
-    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, SoftDeletes, HasRoles;
+
+
+    protected $guard_name = 'api';
 
     /**
      * Get the attributes that should be cast.
@@ -32,15 +32,32 @@ class User extends Authenticatable implements JWTSubject
         'password',
         'employee_code',
         'phone',
+        'image',
+        'pin',
         'is_active'
     ];
     protected $hidden = ['password', 'pin', 'remember_token'];
 
+    protected $appends = ['image_url'];
     protected $casts = [
         'email_verified_at' => 'datetime',
         'is_active' => 'boolean',
-        'password' => 'hashed'
+        'password' => 'hashed',
+        'pin' => 'hashed'
     ];
+
+
+    protected function imageUrl(): Attribute
+    {
+        return Attribute::get(
+            fn() => $this->image
+                ? config('filesystems.disks.s3.url')
+                . '/' . $this->image
+                : null
+        );
+    }
+
+
 
     public function getJWTIdentifier()
     {
