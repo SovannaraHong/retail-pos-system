@@ -13,6 +13,18 @@ return new class extends Migration
     {
         Schema::create('sale_items', function (Blueprint $table) {
             $table->id();
+
+            $table->foreignId('sale_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained()->restrictOnDelete();
+            // snapshot at the time of sale: old receipts and profit reports stay correct
+            $table->string('product_name');
+            $table->string('sku');
+            $table->decimal('qty', 12, 3);
+            $table->decimal('unit_price', 12, 2);
+            $table->decimal('cost_price', 12, 2)->default(0);
+            $table->decimal('discount', 12, 2)->default(0);
+            $table->decimal('tax', 12, 2)->default(0);
+            $table->decimal('line_total', 12, 2);
             $table->timestamps();
         });
     }

@@ -13,7 +13,16 @@ return new class extends Migration
     {
         Schema::create('expenses', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->constrained()->restrictOnDelete();
+            $table->string('category');            // rent, electricity, salary, other...
+            $table->decimal('amount', 12, 2);
+            $table->text('note')->nullable();
+            $table->date('expense_date');
             $table->timestamps();
+            $table->softDeletes();
+
+            $table->index('expense_date');
+            $table->index('category');
         });
     }
 
