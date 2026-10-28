@@ -4,26 +4,41 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class BootstrapRoleSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        //
-        $manageRoles = Permission::firstOrCreate(['name' => 'manage-roles']);
-        $manageUsers = Permission::firstOrCreate(['name' => 'manage-users']);
-        $admin = Role::firstOrCreate(['name' => 'admin']);
-        $admin->syncPermissions([$manageRoles, $manageUsers]);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $user = User::firstOrCreate(
-            ['email' => 'admin@pos.test'],
-            ['name' => 'Admin', 'password' => 'password123', 'is_active' => true]
+        $guard = 'api';
+
+        // Create the admin role
+        $adminRole = Role::findOrCreate('admin', $guard);
+
+        // Get all permissions created for the API guard
+        $permissions = Permission::where('guard_name', $guard)->get();
+
+        // Give all API permissions to admin
+        $adminRole->syncPermissions($permissions);
+
+        // Create the initial admin account
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@example.com'],
+            [
+                'name' => 'Administrator',
+                'password' => Hash::make('ChangeMe123!'),
+                'is_active' => true,
+            ]
         );
-        $user->assignRole($admin);
+
+        // Assign admin role
+        if (! $admin->hasRole($adminRole)) {
+            $admin->assignRole($adminRole);
+        }
     }
 }

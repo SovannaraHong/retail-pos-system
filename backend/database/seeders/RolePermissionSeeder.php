@@ -17,6 +17,7 @@ class RolePermissionSeeder extends Seeder
         $guard = 'api';
 
         $permissions = [
+            // admin area
             'users.view',
             'users.create',
             'users.update',
@@ -29,13 +30,48 @@ class RolePermissionSeeder extends Seeder
             'permissions.create',
             'permissions.update',
             'permissions.delete',
+            // catalog
+            'categories.view',
+            'categories.create',
+            'categories.update',
+            'categories.delete',
+            'brands.view',
+            'brands.create',
+            'brands.update',
+            'brands.delete',
+            'suppliers.view',
+            'suppliers.create',
+            'suppliers.update',
+            'suppliers.delete',
             'products.view',
             'products.create',
             'products.update',
             'products.delete',
+            // people
+            'customers.view',
+            'customers.create',
+            'customers.update',
+            'customers.delete',
+            // stock
+            'purchases.view',
+            'purchases.create',
+            'purchases.update',
+            'stock.view',
+            'stock.adjust',
+            // selling
             'sales.create',
             'sales.view',
             'sales.refund',
+            'shifts.open',
+            'shifts.close',
+            'shifts.view',
+            // money and reports
+            'expenses.view',
+            'expenses.create',
+            'expenses.delete',
+            'reports.view',
+            'settings.view',
+            'settings.update',
         ];
 
         foreach ($permissions as $name) {
@@ -45,18 +81,45 @@ class RolePermissionSeeder extends Seeder
         Role::findOrCreate('admin', $guard)->syncPermissions($permissions);
 
         Role::findOrCreate('manager', $guard)->syncPermissions([
+            'categories.view',
+            'categories.create',
+            'categories.update',
+            'brands.view',
+            'brands.create',
+            'brands.update',
+            'suppliers.view',
+            'suppliers.create',
+            'suppliers.update',
             'products.view',
             'products.create',
             'products.update',
+            'customers.view',
+            'customers.create',
+            'customers.update',
+            'purchases.view',
+            'purchases.create',
+            'purchases.update',
+            'stock.view',
+            'stock.adjust',
             'sales.create',
             'sales.view',
             'sales.refund',
+            'shifts.view',
+            'expenses.view',
+            'expenses.create',
+            'reports.view',
         ]);
 
         Role::findOrCreate('cashier', $guard)->syncPermissions([
+            'categories.view',
+            'brands.view',
             'products.view',
+            'customers.view',
+            'customers.create',
             'sales.create',
             'sales.view',
+            'shifts.open',
+            'shifts.close',
         ]);
 
         // first admin account: CHANGE THE PASSWORD right after the first login
@@ -69,6 +132,8 @@ class RolePermissionSeeder extends Seeder
             ]
         );
 
-        $admin->syncRoles(['admin']);
+        if (! $admin->hasRole('admin')) {
+            $admin->assignRole('admin');
+        }
     }
 }
