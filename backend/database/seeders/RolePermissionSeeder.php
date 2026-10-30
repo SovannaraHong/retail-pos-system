@@ -62,6 +62,8 @@ class RolePermissionSeeder extends Seeder
             'sales.create',
             'sales.view',
             'sales.refund',
+            'sales.discount',
+            'sales.void',
             'shifts.open',
             'shifts.close',
             'shifts.view',
