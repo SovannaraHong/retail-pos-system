@@ -22,10 +22,7 @@ class KhqrPaymentService
         private BakongClient $bakong,
     ) {}
 
-    /**
-     * Step 1: price the cart, build a dynamic KHQR for that exact amount and save it as "pending".
-     * No sale exists yet and no stock moves until the money really arrives.
-     */
+
     public function create(User $user, array $data): KhqrPayment
     {
         if (! config('bakong.account_id') || ! config('bakong.merchant_name')) {
@@ -78,12 +75,7 @@ class KhqrPaymentService
         ]);
     }
 
-    /**
-     * Step 2 (the app calls this every few seconds): ask Bakong if the QR was paid.
-     * Paid -> the sale is created now. Safe to call many times.
-     *
-     * @throws BakongException when Bakong cannot be reached; the payment stays pending
-     */
+
     public function refresh(KhqrPayment $payment, bool $force = false): KhqrPayment
     {
         if ($payment->status !== 'pending') {
@@ -132,10 +124,7 @@ class KhqrPaymentService
         return $payment;
     }
 
-    /**
-     * Used by the scheduled command. Also looks at QR codes that just expired or were cancelled:
-     * if one was paid anyway, a person must decide what to do with the money.
-     */
+
     public function reconcile(KhqrPayment $payment): KhqrPayment
     {
         if ($payment->status === 'pending') {
