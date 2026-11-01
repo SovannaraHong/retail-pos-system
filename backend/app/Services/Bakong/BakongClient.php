@@ -5,6 +5,7 @@ namespace App\Services\Bakong;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+
 //1
 // BakongClient – Communicates with the Bakong API to check payment status
 // using MD5 and automatically renews expired authentication tokens.
@@ -13,14 +14,14 @@ class BakongClient
 
     public function checkTransactionByMd5(string $md5): array
     {
+
         $json = $this->post('/v1/check_transaction_by_md5', ['md5' => $md5]);
 
-        if (($json['responseCode'] ?? null) === 0 && ! empty($json['data'])) {
+        if (($json['responseCode'] ?? null) === 0 && !empty($json['data'])) {
             return ['state' => 'paid', 'data' => $json['data']];
         }
 
         $errorCode = $json['errorCode'] ?? null;
-
         if ($errorCode === 1) {
             return ['state' => 'not_found'];      // nobody has paid this QR (yet)
         }
@@ -35,11 +36,11 @@ class BakongClient
         );
     }
 
-    private function post(string $path, array $body, bool $mayRenew = true): array
+
+    private function post(string $path, array $body, $mayRenew = true): array
     {
         $token = $this->token();
-
-        if (! $token) {
+        if (!$token) {
             throw new BakongException('BAKONG_TOKEN is not set.');
         }
 
@@ -48,7 +49,7 @@ class BakongClient
                 ->withToken($token)
                 ->acceptJson()
                 ->asJson()
-                ->timeout((int) config('bakong.timeout', 15))
+                ->timeout((int)config('bakong.timeout', 15))
                 ->post($path, $body);
         } catch (ConnectionException $e) {
             throw new BakongException(
@@ -60,8 +61,9 @@ class BakongClient
 
         $json = $response->json() ?? [];
 
-        // expired or invalid token
+        //expire or invalid token
         if ($response->status() === 401 || ($json['errorCode'] ?? null) === 6) {
+
             if ($mayRenew && $this->renewToken()) {
                 return $this->post($path, $body, false);
             }
@@ -81,12 +83,12 @@ class BakongClient
         return $json;
     }
 
+
     // asks Bakong for a fresh token and remembers it
     private function renewToken(): bool
     {
-        $email = config('bakong.email');
-
-        if (! $email) {
+        $email =  config('bakong.email');
+        if (!$email) {
             return false;
         }
 
@@ -94,36 +96,32 @@ class BakongClient
             $response = Http::baseUrl($this->baseUrl())
                 ->acceptJson()
                 ->asJson()
-                ->timeout((int) config('bakong.timeout', 15))
+                ->timeout((int)config('bakong.timeout', 15))
                 ->post('/v1/renew_token', ['email' => $email]);
         } catch (ConnectionException) {
             return false;
         }
 
         $token = data_get($response->json(), 'data.token');
-
-        if (! $token) {
+        if (!$token) {
             return false;
         }
-
         Cache::forever($this->cacheKey(), $token);
-
         return true;
     }
-
     private function token(): ?string
     {
         return Cache::get($this->cacheKey()) ?: config('bakong.token');
     }
-
-    // the key changes when you put a new token in .env, so an old renewed token never hides it
     private function cacheKey(): string
     {
-        return 'bakong.token.' . substr(sha1((string) config('bakong.token')), 0, 12);
+        return 'bakong.token' . substr(sha1((string)config('bakong.base_url')), 0, 12);
     }
+
 
     private function baseUrl(): string
     {
-        return rtrim((string) config('bakong.base_url'), '/');
+
+        return rtrim((string)config('bakong.base_url'), '/');
     }
 }

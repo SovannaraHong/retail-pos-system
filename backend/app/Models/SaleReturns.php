@@ -35,6 +35,6 @@ class SaleReturns extends Model
 
     public function items(): HasMany
     {
-        return $this->hasMany(SaleReturnItems::class);
+        return $this->hasMany(SaleReturnItems::class, 'sale_return_id');
     }
 }

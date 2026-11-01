@@ -16,4 +16,5 @@ Route::prefix('v1')->group(function () {
     require __DIR__ . '/api/sales.php';
     require __DIR__ . '/api/shifts.php';
     require __DIR__ . '/api/payments.php';
+    require __DIR__ . '/api/returns.php';
 });
