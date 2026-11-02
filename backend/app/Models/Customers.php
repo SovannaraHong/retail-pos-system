@@ -11,7 +11,15 @@ class Customers extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $fillable = ['name', 'phone', 'email', 'address', 'points', 'note', 'is_active'];
+    protected $fillable = [
+        'name',
+        'phone',
+        'email',
+        'address',
+        'points',
+        'note',
+        'is_active'
+    ];
 
     protected $casts = [
         'is_active' => 'boolean',
@@ -21,6 +29,6 @@ class Customers extends Model
 
     public function sales(): HasMany
     {
-        return $this->hasMany(Sales::class);
+        return $this->hasMany(Sales::class, 'customer_id', 'id');
     }
 }
