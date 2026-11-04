@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -62,8 +61,8 @@ class RolePermissionSeeder extends Seeder
             'sales.create',
             'sales.view',
             'sales.refund',
-            'sales.discount',
             'sales.void',
+            'sales.discount',
             'shifts.open',
             'shifts.close',
             'shifts.view',
@@ -106,6 +105,8 @@ class RolePermissionSeeder extends Seeder
             'sales.create',
             'sales.view',
             'sales.refund',
+            'sales.void',
+            'sales.discount',
             'shifts.view',
             'expenses.view',
             'expenses.create',
@@ -124,18 +125,7 @@ class RolePermissionSeeder extends Seeder
             'shifts.close',
         ]);
 
-        // first admin account: CHANGE THE PASSWORD right after the first login
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@example.com'],
-            [
-                'name'      => 'Administrator',
-                'password'  => 'ChangeMe123!',
-                'is_active' => true,
-            ]
-        );
-
-        if (! $admin->hasRole('admin')) {
-            $admin->assignRole('admin');
-        }
+        // NO default admin account here on purpose (no password in code).
+        // Create yours with:  php artisan pos:create-admin you@yourshop.com
     }
 }
