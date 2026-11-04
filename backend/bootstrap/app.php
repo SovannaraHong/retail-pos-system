@@ -1,3 +1,4 @@
+
 <?php
 
 use Illuminate\Foundation\Application;
@@ -12,7 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+
+        // Prevent redirecting API guests to a login page
+        $middleware->redirectGuestsTo(fn() => null);
+
+        // Spatie Permission Middleware Aliases
         $middleware->alias([
             'role'               => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission'         => \Spatie\Permission\Middleware\PermissionMiddleware::class,
@@ -20,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+
         // Always return JSON for API routes (no redirect to a login page)
-        $exceptions->shouldRenderJsonWhen(fn($request, $e) => $request->is('api/*') || $request->expectsJson());
+        $exceptions->shouldRenderJsonWhen(
+            fn($request, $e) => $request->is('api/*') || $request->expectsJson()
+        );
     })->create();
