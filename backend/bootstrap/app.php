@@ -12,6 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+
+
+        // Prevent redirecting API guests to a login page
+        $middleware->redirectGuestsTo(fn() => null);
         //
         $middleware->alias([
             'role'               => \Spatie\Permission\Middleware\RoleMiddleware::class,
