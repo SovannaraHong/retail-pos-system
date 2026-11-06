@@ -10,6 +10,7 @@ interface Props {
   busy?: boolean; // refetching: keep rows visible but dim them
   canEdit: boolean;
   canDelete: boolean;
+  onView: (p: Product) => void;
   onToggle: (id: number) => void;
   onTogglePage: () => void;
   onEdit: (p: Product) => void;
@@ -17,7 +18,7 @@ interface Props {
 }
 
 const checkbox =
-  "h-4 w-4 rounded border-[#c5cddb] text-[#2f6fe8] focus:ring-[#2f6fe8]";
+  "h-4 w-4 rounded border-[#c5cddb] cursor-pointer text-[#2f6fe8] focus:ring-[#2f6fe8]";
 
 function IconButton({
   label,
@@ -54,6 +55,7 @@ export function ProductTable({
   canEdit,
   canDelete,
   onToggle,
+  onView,
   onTogglePage,
   onEdit,
   onDelete,
@@ -97,6 +99,23 @@ export function ProductTable({
             return (
               <tr
                 key={p.id}
+                tabIndex={0}
+                onClick={(e) => {
+                  if (
+                    (e.target as HTMLElement).closest("input, button, a, label")
+                  )
+                    return;
+                  onView(p);
+                }}
+                onKeyDown={(e) => {
+                  if (
+                    e.target === e.currentTarget &&
+                    (e.key === "Enter" || e.key === " ")
+                  ) {
+                    e.preventDefault();
+                    onView(p);
+                  }
+                }}
                 className={`transition-colors hover:bg-[#f8faff] ${isSel ? "bg-[#eef4ff]" : ""}`}
               >
                 <td className="py-3 pl-5">

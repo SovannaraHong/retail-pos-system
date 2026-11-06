@@ -17,3 +17,16 @@ export interface Category {
   updated_at: string | null;
   deleted_at: string | null;
 }
+
+export interface StoreCategoryPayload {
+  name: string;
+  parent_id?: number | null;
+  description?: string | null;
+  is_active?: boolean;
+}
+export interface UpdateCategoryPayload {
+  name?: string;
+  parent_id?: number | null;
+  description?: string | null;
+  is_active?: boolean;
+}

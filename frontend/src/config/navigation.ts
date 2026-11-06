@@ -1,19 +1,23 @@
 import {
   LayoutDashboard,
-  ShoppingCart,
-  Package,
+  // Package,
   Coffee,
-  Boxes,
   Users,
   Truck,
-  BarChart3,
   Settings,
   ClipboardList,
   Tags,
-  Warehouse,
   UserCog,
   ShieldCheck,
   KeyRound,
+  BadgeCheck,
+  PackageSearch,
+  Receipt,
+  RotateCcw,
+  CreditCard,
+  Clock,
+  Wallet,
+  FileBarChart,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,25 +39,78 @@ export const navigation: NavGroup[] = [
     title: "OVERVIEW",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { label: "Analytics", href: "/analytics", icon: BarChart3 },
+      {
+        label: "Reports",
+        href: "/reports",
+        icon: FileBarChart,
+        permission: "reports.view",
+      },
+    ],
+  },
+  {
+    title: "SALES",
+    collapsible: true,
+    items: [
+      {
+        label: "Sales",
+        href: "/sales",
+        icon: Receipt,
+        permission: "sales.view",
+      },
+      {
+        label: "Payments",
+        href: "/payments",
+        icon: CreditCard,
+        permission: "payments.view",
+      },
+      {
+        label: "Returns",
+        href: "/returns",
+        icon: RotateCcw,
+        permission: "returns.view",
+      },
+      {
+        label: "Shifts",
+        href: "/shifts",
+        icon: Clock,
+        permission: "shifts.view",
+      },
+      {
+        label: "Customers",
+        href: "/customers",
+        icon: Users,
+        permission: "customers.view",
+      },
     ],
   },
   {
     title: "MANAGEMENT",
     collapsible: true,
     items: [
-      { label: "Orders", href: "/orders", icon: ShoppingCart },
       {
         label: "Products",
         href: "/products",
         icon: Coffee,
         permission: "products.view",
       },
-      { label: "Categories", href: "/categories", icon: Tags },
-      { label: "Ingredients", href: "/ingredients", icon: Boxes },
-      { label: "Add-ons", href: "/addons", icon: Package },
-      { label: "Suppliers", href: "/suppliers", icon: Truck },
-      { label: "Customers", href: "/customers", icon: Users },
+      {
+        label: "Categories",
+        href: "/categories",
+        icon: Tags,
+        permission: "categories.view",
+      },
+      {
+        label: "Brands",
+        href: "/brands",
+        icon: BadgeCheck,
+        permission: "brands.view",
+      },
+      {
+        label: "Suppliers",
+        href: "/suppliers",
+        icon: Truck,
+        permission: "suppliers.view",
+      },
     ],
   },
   {
@@ -61,14 +118,28 @@ export const navigation: NavGroup[] = [
     collapsible: true,
     items: [
       {
-        label: "Purchase Orders",
-        href: "/purchase-orders",
-        icon: ClipboardList,
+        label: "Stocks",
+        href: "/stocks",
+        icon: PackageSearch,
+        permission: "stocks.view",
       },
       {
-        label: "Inventory Transactions",
-        href: "/inventory-transactions",
-        icon: Warehouse,
+        label: "Purchases",
+        href: "/purchases",
+        icon: ClipboardList,
+        permission: "purchases.view",
+      },
+    ],
+  },
+  {
+    title: "FINANCE",
+    collapsible: true,
+    items: [
+      {
+        label: "Expenses",
+        href: "/expenses",
+        icon: Wallet,
+        permission: "expenses.view",
       },
     ],
   },
@@ -98,9 +169,17 @@ export const navigation: NavGroup[] = [
   },
   {
     title: "SYSTEM",
-    items: [{ label: "Settings", href: "/settings", icon: Settings }],
+    items: [
+      {
+        label: "Settings",
+        href: "/settings",
+        icon: Settings,
+        permission: "settings.view",
+      },
+    ],
   },
 ];
+
 const routePermissions: [string, string][] = navigation
   .flatMap((group) => group.items)
   .filter((item): item is NavItem & { permission: string } =>

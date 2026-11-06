@@ -13,11 +13,12 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useProductLookups } from "@/hooks/use-product-lookups";
 import { parseApiError } from "@/libs/api-error";
 import { focusRing } from "@/libs/format";
-import { ConfirmDelete } from "./confirm-delete";
-import { Pagination } from "./pagination";
+import { ConfirmDelete } from "../../../../shared/confirm-delete";
+import { Pagination } from "../../../../shared/pagination";
 import { ProductDrawer } from "./product-drawer";
-import { PageSkeleton, TableSkeleton } from "./product-skeleton";
+import { PageSkeleton, TableSkeleton } from "../../../../shared/page-skeleton";
 import { ProductTable } from "./product-table";
+import { ProductDetailModal } from "./product-detail-modal";
 
 type StatusFilter = "all" | "active" | "inactive";
 
@@ -108,6 +109,7 @@ export function ProductsView() {
   const [drawer, setDrawer] = useState<{ product: Product | null } | null>(
     null,
   );
+  const [viewing, setViewing] = useState<Product | null>(null);
   const [toDelete, setToDelete] = useState<Product[] | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<{
@@ -386,6 +388,7 @@ export function ProductsView() {
           <>
             <ProductTable
               products={rows}
+              onView={setViewing}
               selected={selected}
               busy={fetching}
               canEdit={canUpdate}
@@ -454,7 +457,17 @@ export function ProductsView() {
           {toast.text}
         </div>
       )}
-
+      {viewing && (
+        <ProductDetailModal
+          product={viewing}
+          canEdit={canUpdate}
+          onClose={() => setViewing(null)}
+          onEdit={(p) => {
+            setViewing(null);
+            setDrawer({ product: p });
+          }}
+        />
+      )}
       {drawer && (
         <ProductDrawer
           key={drawer.product?.id ?? "new"}
