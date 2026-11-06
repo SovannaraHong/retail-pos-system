@@ -10,4 +10,11 @@ Route::prefix('reports')->middleware('permission:reports.view,api')->group(funct
     Route::get('cashiers', [ReportController::class, 'cashiers']);
     Route::get('low-stock', [ReportController::class, 'lowStock']);
     Route::get('stock-value', [ReportController::class, 'stockValue']);
+
+    // new
+    Route::get('hourly', [ReportController::class, 'hourly']);
+    Route::get('categories', [ReportController::class, 'categories']);
+    Route::get('customers', [ReportController::class, 'customers']);
+    Route::get('expenses', [ReportController::class, 'expenses']);
+    Route::get('recent-sales', [ReportController::class, 'recentSales']);
 });

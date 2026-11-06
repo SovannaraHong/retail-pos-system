@@ -20,9 +20,6 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Track which pathname has been checked.
-  // The server and the first client render both show the spinner,
-  // so there is no hydration mismatch and no storage access during render.
   const [checkedPath, setCheckedPath] = useState<string | null>(null);
 
   useEffect(() => {
