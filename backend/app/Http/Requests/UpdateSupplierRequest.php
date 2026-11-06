@@ -25,7 +25,7 @@ class UpdateSupplierRequest extends FormRequest
                 'string',
                 'max:255',
                 Rule::unique('suppliers', 'name')
-                    ->ignore($this->route('name'))
+                    ->ignore($this->route('supplier'))
             ],
             'contact_person' => ['nullable', 'string', 'max:255'],
             'phone'          => ['nullable', 'string', 'max:30'],
