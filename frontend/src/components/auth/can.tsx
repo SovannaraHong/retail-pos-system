@@ -11,6 +11,6 @@ export default function Can({
   permission: string;
   children: ReactNode;
 }) {
-  const { can } = useAuth();
-  return can(permission) ? <>{children}</> : null;
+  const { can, ready } = useAuth();
+  return ready && can(permission) ? <>{children}</> : null;
 }

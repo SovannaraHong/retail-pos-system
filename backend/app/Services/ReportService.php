@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Products;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class ReportService
@@ -201,18 +203,52 @@ class ReportService
     }
 
     // ---------------------------------------------------------------- best sellers
+    // public function topProducts(Carbon $from, Carbon $to, int $limit, string $sort): array
+    // {
+    //     $order = ['qty' => 'qty', 'revenue' => 'revenue', 'profit' => 'profit'][$sort] ?? 'qty';
+
+    //     return DB::table('sale_items as si')
+    //         ->join('sales as s', 's.id', '=', 'si.sale_id')
+    //         ->whereIn('s.status', self::COUNTED)
+    //         ->whereBetween('s.sold_at', [$from, $to])
+    //         ->selectRaw('si.product_id, MAX(si.product_name) as name, MAX(si.sku) as sku,
+    //             SUM(si.qty) as qty,
+    //             SUM(si.line_total - si.tax) as revenue,
+    //             SUM(si.line_total - si.tax - si.qty * si.cost_price) as profit')
+    //         ->groupBy('si.product_id')
+    //         ->orderByRaw($order . ' DESC')
+    //         ->limit($limit)
+    //         ->get()
+    //         ->map(fn($r) => [
+    //             'product_id' => (int) $r->product_id,
+    //             'name'       => $r->name,
+    //             'sku'        => $r->sku,
+    //             'qty_sold'   => (float) $r->qty,
+    //             'revenue'    => round((float) $r->revenue, 2),   // without tax, before returns
+    //             'profit'     => round((float) $r->profit, 2),
+    //         ])
+    //         ->values()
+    //         ->all();
+    // }
+
     public function topProducts(Carbon $from, Carbon $to, int $limit, string $sort): array
     {
         $order = ['qty' => 'qty', 'revenue' => 'revenue', 'profit' => 'profit'][$sort] ?? 'qty';
 
         return DB::table('sale_items as si')
             ->join('sales as s', 's.id', '=', 'si.sale_id')
+            ->leftJoin('products as p', 'p.id', '=', 'si.product_id')
             ->whereIn('s.status', self::COUNTED)
             ->whereBetween('s.sold_at', [$from, $to])
-            ->selectRaw('si.product_id, MAX(si.product_name) as name, MAX(si.sku) as sku,
-                SUM(si.qty) as qty,
-                SUM(si.line_total - si.tax) as revenue,
-                SUM(si.line_total - si.tax - si.qty * si.cost_price) as profit')
+            ->selectRaw('
+            si.product_id,
+            MAX(si.product_name) as name,
+            MAX(si.sku) as sku,
+            MAX(p.image) as image,
+            SUM(si.qty) as qty,
+            SUM(si.line_total - si.tax) as revenue,
+            SUM(si.line_total - si.tax - si.qty * si.cost_price) as profit
+        ')
             ->groupBy('si.product_id')
             ->orderByRaw($order . ' DESC')
             ->limit($limit)
@@ -221,13 +257,17 @@ class ReportService
                 'product_id' => (int) $r->product_id,
                 'name'       => $r->name,
                 'sku'        => $r->sku,
+                'image_url'  => $r->image
+                    ? Storage::url($r->image)
+                    : null,
                 'qty_sold'   => (float) $r->qty,
-                'revenue'    => round((float) $r->revenue, 2),   // without tax, before returns
+                'revenue'    => round((float) $r->revenue, 2),
                 'profit'     => round((float) $r->profit, 2),
             ])
             ->values()
             ->all();
     }
+
     // ---------------------------------------------------------------- per cashier
     public function cashiers(Carbon $from, Carbon $to): array
     {
@@ -277,6 +317,12 @@ class ReportService
             ->all();
     }
 
+    // real number of low-stock products (the list above is limited)
+    public function lowStockCount(): int
+    {
+        return Products::query()->lowStock()->where('is_active', true)->count();
+    }
+
     public function stockValue(): array
     {
         $base = fn() => DB::table('products as p')
@@ -322,6 +368,180 @@ class ReportService
             'negative_stock'       => $base()->where('p.stock_qty', '<', 0)->count(), // sold before the delivery was recorded
             'by_category'          => $byCategory,
         ];
+    }
+
+
+    // =====================================================================
+    // NEW: dashboard extras
+    // ASSUMED COLUMNS (edit here if yours differ):
+    //   sales.customer_id, customers.name, sales.invoice_no (optional)
+    //   expenses.expense_category_id, expense_categories.name
+    //   products.category_id, categories.name
+    // =====================================================================
+
+    // day / week / month for the chart; "auto" picks by range length
+    public function resolveGroup(Carbon $from, Carbon $to, string $by): string
+    {
+        if (in_array($by, ['day', 'week', 'month'], true)) {
+            return $by;
+        }
+
+        $days = (int) floor($from->diffInDays($to)) + 1;
+
+        return $days <= 31 ? 'day' : ($days <= 180 ? 'week' : 'month');
+    }
+
+    public function dailyGrouped(Carbon $from, Carbon $to, string $by): array
+    {
+        $rows = $this->daily($from, $to);
+
+        if ($by === 'day') {
+            return $rows;
+        }
+
+        $fields = ['sales_count', 'gross_sales', 'refunds', 'net_sales', 'cogs', 'gross_profit', 'expenses', 'net_profit'];
+        $out = [];
+
+        foreach ($rows as $r) {
+            $d = Carbon::parse($r['date']);
+            $key = ($by === 'week' ? $d->copy()->startOfWeek() : $d->copy()->startOfMonth())->toDateString();
+
+            $out[$key] ??= ['date' => $key] + array_fill_keys($fields, 0);
+
+            foreach ($fields as $f) {
+                $out[$key][$f] += $r[$f];
+            }
+        }
+
+        return array_values(array_map(
+            fn($row) => array_map(fn($v) => is_float($v) ? round($v, 2) : $v, $row),
+            $out
+        ));
+    }
+
+    // sales by hour of day (always 24 rows)
+    public function hourly(Carbon $from, Carbon $to): array
+    {
+        $rows = DB::table('sales')
+            ->whereIn('status', self::COUNTED)
+            ->whereBetween('sold_at', [$from, $to])
+            ->selectRaw('HOUR(sold_at) as h, COUNT(*) as cnt, COALESCE(SUM(total),0) as gross')
+            ->groupByRaw('HOUR(sold_at)')
+            ->get()
+            ->keyBy('h');
+
+        return collect(range(0, 23))->map(fn($h) => [
+            'hour'        => $h,
+            'sales_count' => (int) ($rows[$h]->cnt ?? 0),
+            'gross_sales' => round((float) ($rows[$h]->gross ?? 0), 2),
+        ])->all();
+    }
+
+    public function salesByCategory(Carbon $from, Carbon $to, int $limit): array
+    {
+        return DB::table('sale_items as si')
+            ->join('sales as s', 's.id', '=', 'si.sale_id')
+            ->leftJoin('products as p', 'p.id', '=', 'si.product_id')
+            ->leftJoin('categories as c', 'c.id', '=', 'p.category_id')
+            ->whereIn('s.status', self::COUNTED)
+            ->whereBetween('s.sold_at', [$from, $to])
+            ->selectRaw('c.id as category_id, c.name as category,
+                SUM(si.qty) as qty,
+                SUM(si.line_total - si.tax) as revenue,
+                SUM(si.line_total - si.tax - si.qty * si.cost_price) as profit')
+            ->groupBy('c.id', 'c.name')
+            ->orderByRaw('SUM(si.line_total - si.tax) DESC')
+            ->limit($limit)
+            ->get()
+            ->map(fn($r) => [
+                'category_id' => $r->category_id,
+                'category'    => $r->category ?? 'No category',
+                'qty_sold'    => (float) $r->qty,
+                'revenue'     => round((float) $r->revenue, 2),
+                'profit'      => round((float) $r->profit, 2),
+            ])->values()->all();
+    }
+
+    public function topCustomers(Carbon $from, Carbon $to, int $limit): array
+    {
+        return DB::table('sales as s')
+            ->join('customers as c', 'c.id', '=', 's.customer_id')
+            ->whereIn('s.status', self::COUNTED)
+            ->whereBetween('s.sold_at', [$from, $to])
+            ->selectRaw('c.id, c.name, COUNT(*) as cnt, COALESCE(SUM(s.total),0) as gross')
+            ->groupBy('c.id', 'c.name')
+            ->orderByRaw('SUM(s.total) DESC')
+            ->limit($limit)
+            ->get()
+            ->map(fn($r) => [
+                'customer_id' => (int) $r->id,
+                'name'        => $r->name,
+                'sales_count' => (int) $r->cnt,
+                'gross_sales' => round((float) $r->gross, 2),
+            ])->values()->all();
+    }
+
+    public function expensesByCategory(Carbon $from, Carbon $to): array
+    {
+        $base = DB::table('expenses as e')
+            ->whereNull('e.deleted_at')
+            ->whereBetween('e.expense_date', [$from->toDateString(), $to->toDateString()]);
+
+        // foreign key to the category table, whatever it is called
+        $fk = collect(['expense_category_id', 'category_id'])
+            ->first(fn($c) => Schema::hasColumn('expenses', $c));
+
+        // category table
+        $table = collect(['expense_categories', 'categories'])
+            ->first(fn($t) => Schema::hasTable($t));
+
+        if ($fk && $table) {
+            $q = $base
+                ->leftJoin("$table as ec", 'ec.id', '=', "e.$fk")
+                ->selectRaw('ec.id as category_id, ec.name as category, COUNT(*) as cnt, COALESCE(SUM(e.amount),0) as total')
+                ->groupBy('ec.id', 'ec.name');
+        } elseif (Schema::hasColumn('expenses', 'category')) {
+            // category stored as plain text on the expense
+            $q = $base
+                ->selectRaw('NULL as category_id, e.category as category, COUNT(*) as cnt, COALESCE(SUM(e.amount),0) as total')
+                ->groupBy('e.category');
+        } else {
+            // no category info at all: one single row
+            $q = $base
+                ->selectRaw('NULL as category_id, NULL as category, COUNT(*) as cnt, COALESCE(SUM(e.amount),0) as total');
+        }
+
+        return $q->orderByRaw('SUM(e.amount) DESC')
+            ->get()
+            ->filter(fn($r) => (int) $r->cnt > 0)
+            ->map(fn($r) => [
+                'category_id' => $r->category_id,
+                'category'    => $r->category ?? 'No category',
+                'count'       => (int) $r->cnt,
+                'total'       => round((float) $r->total, 2),
+            ])->values()->all();
+    }
+
+    // latest sales, voided ones included (flagged by status)
+    public function recentSales(Carbon $from, Carbon $to, int $limit): array
+    {
+        return DB::table('sales as s')
+            ->leftJoin('users as u', 'u.id', '=', 's.user_id')
+            ->leftJoin('customers as c', 'c.id', '=', 's.customer_id')
+            ->whereBetween('s.sold_at', [$from, $to])
+            ->select('s.*', 'u.name as cashier_name', 'c.name as customer_name')
+            ->orderByDesc('s.sold_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn($r) => [
+                'id'       => (int) $r->id,
+                'invoice'  => (string) ($r->invoice_no ?? $r->number ?? $r->id),
+                'customer' => $r->customer_name,
+                'cashier'  => $r->cashier_name,
+                'total'    => round((float) $r->total, 2),
+                'status'   => $r->status,
+                'sold_at'  => $r->sold_at,
+            ])->values()->all();
     }
 
 

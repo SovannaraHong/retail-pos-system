@@ -1,6 +1,7 @@
 import { clearSession } from "@/libs/auth-storage";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1";
 
 export class ApiError extends Error {
   status: number;
@@ -38,7 +39,11 @@ async function request<T>(
     ...headers,
   };
 
-  if (body !== undefined) {
+  const isFormData =
+    typeof FormData !== "undefined" && body instanceof FormData;
+
+  // For FormData the browser sets Content-Type itself (it adds the boundary).
+  if (body !== undefined && !isFormData) {
     finalHeaders["Content-Type"] = "application/json";
   }
 
@@ -50,7 +55,12 @@ async function request<T>(
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: finalHeaders,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body:
+      body === undefined
+        ? undefined
+        : isFormData
+          ? (body as FormData)
+          : JSON.stringify(body),
     signal,
   });
 

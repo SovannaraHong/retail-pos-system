@@ -7,9 +7,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
+
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -56,7 +58,19 @@ class User extends Authenticatable implements JWTSubject
                 : null
         );
     }
+    // protected function imageUrl(): Attribute
+    // {
+    //     return Attribute::get(function () {
+    //         if (! $this->image) {
+    //             return null;
+    //         }
 
+    //         /** @var FilesystemAdapter $disk */
+    //         $disk = Storage::disk('s3');
+
+    //         return $disk->url($this->image);
+    //     });
+    // }
 
 
     public function getJWTIdentifier()
