@@ -31,7 +31,7 @@ class SupplierController extends Controller
             })
             ->when($request->filled('is_active'), fn($q) =>
             $q->where('is_active', $request->boolean('is_active')))
-            ->when($request->filled('only_trash'), fn($q) => $q->onlyTrashed())
+            ->when($request->filled('only_trashed'), fn($q) => $q->onlyTrashed())
             ->orderBy('name')
             ->paginate(min($request->integer('per_page', 15), 100));
         return SupplierResource::collection($suppliers);

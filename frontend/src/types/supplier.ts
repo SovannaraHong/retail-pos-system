@@ -12,3 +12,23 @@ export interface Supplier {
   updated_at: string | null;
   deleted_at: string | null;
 }
+
+export interface StoreSupplierPayload {
+  name: string;
+  contact_person?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  note?: string | null;
+  is_active?: boolean;
+}
+
+export interface UpdateSupplierPayload {
+  name?: string;
+  contact_person?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  note?: string | null;
+  is_active?: boolean;
+}
