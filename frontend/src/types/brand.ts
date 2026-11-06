@@ -7,3 +7,12 @@ export interface Brand {
   updated_at: string | null;
   deleted_at: string | null;
 }
+export interface StoreBrandPayload {
+  name: string;
+  is_active?: boolean;
+}
+
+export interface UpdateBrandPayload {
+  name?: string;
+  is_active?: boolean;
+}
