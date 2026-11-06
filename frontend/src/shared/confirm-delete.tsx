@@ -6,6 +6,7 @@ import { focusRing } from "@/libs/format";
 interface Props {
   count: number;
   name?: string;
+  noun?: string;
   busy: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -15,6 +16,7 @@ export function ConfirmDelete({
   count,
   name,
   busy,
+  noun = "product",
   onCancel,
   onConfirm,
 }: Props) {
@@ -42,12 +44,11 @@ export function ConfirmDelete({
       >
         <h3 className="text-base font-bold text-[#1c2740]">
           {count === 1
-            ? `Delete ${name ?? "this product"}?`
-            : `Delete ${count} products?`}
+            ? `Delete ${name ?? `this ${noun}`}?`
+            : `Delete ${count} ${noun === "category" ? "categories" : `${noun}s`}?`}
         </h3>
         <p className="mt-2 text-sm text-[#6c7a93]">
-          {count === 1 ? "It" : "They"} will be removed from your product list.
-          Sales history stays intact.
+          {count === 1 ? "It" : "They"} will be removed from your {noun} list.
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <button
