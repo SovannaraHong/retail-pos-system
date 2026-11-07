@@ -1,48 +1,67 @@
-// "use client";
-
-// import { useEffect, useState } from "react";
-
-// import { getAuthUser, getPermissions } from "@/libs/auth-storage";
-// import type { AuthUser } from "@/types/auth";
-
-// export function useAuth() {
-//   const [user, setUser] = useState<AuthUser | null>(null);
-//   const [permissions, setPermissions] = useState<string[]>([]);
-
-//   useEffect(() => {
-//     setUser(getAuthUser());
-//     setPermissions(getPermissions());
-//   }, []);
-
-//   return {
-//     user,
-//     permissions,
-//     can: (permission: string) => permissions.includes(permission),
-//   };
-// }
-
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 
-import { getAuthUser, getPermissions } from "@/libs/auth-storage";
+import {
+  getAuthUser,
+  getPermissions,
+  getValidToken,
+  subscribeSession,
+} from "@/libs/auth-storage";
 import type { AuthUser } from "@/types/auth";
 
-const subscribe = () => () => {};
-export function useAuth() {
-  const [user] = useState<AuthUser | null>(() => getAuthUser());
-  const [permissions] = useState<string[]>(() => getPermissions());
+type Snapshot = {
+  user: AuthUser | null;
+  permissions: string[];
+};
 
-  // false on the server and during hydration, true once mounted in the browser
+const SERVER_SNAPSHOT: Snapshot = { user: null, permissions: [] };
+
+// useSyncExternalStore needs the SAME object back until the data really changes,
+// so we cache the snapshot by the raw stored strings.
+let cacheKey = "";
+let cacheValue: Snapshot = SERVER_SNAPSHOT;
+
+function getSnapshot(): Snapshot {
+  const token = getValidToken(); // also clears an expired session
+  const rawUser = sessionStorage.getItem("auth_user") ?? "";
+  const rawPerms = sessionStorage.getItem("permissions") ?? "";
+  const key = `${token ?? ""}|${rawUser}|${rawPerms}`;
+
+  if (key !== cacheKey) {
+    cacheKey = key;
+    cacheValue = token
+      ? { user: getAuthUser(), permissions: getPermissions() }
+      : SERVER_SNAPSHOT;
+  }
+  return cacheValue;
+}
+
+const getServerSnapshot = (): Snapshot => SERVER_SNAPSHOT;
+
+// "mounted" is false on the server / hydration, true in the browser
+const subscribeNoop = () => () => {};
+
+export function useAuth() {
+  const { user, permissions } = useSyncExternalStore(
+    subscribeSession,
+    getSnapshot,
+    getServerSnapshot,
+  );
+
   const ready = useSyncExternalStore(
-    subscribe,
+    subscribeNoop,
     () => true,
     () => false,
   );
-  return {
-    user,
-    permissions,
-    ready,
-    can: (permission: string) => permissions.includes(permission),
-  };
+
+  const can = useCallback(
+    (permission: string) => permissions.includes(permission),
+    [permissions],
+  );
+
+  return useMemo(
+    () => ({ user, permissions, ready, can }),
+    [user, permissions, ready, can],
+  );
 }

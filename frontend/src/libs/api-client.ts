@@ -1,3 +1,4 @@
+import axios, { type AxiosRequestConfig } from "axios";
 import { clearSession } from "@/libs/auth-storage";
 
 const BASE_URL =
@@ -19,12 +20,28 @@ export class ApiError extends Error {
   }
 }
 
+type UnauthorizedHandler = (returnUrl: string) => void;
+
+let onUnauthorized: UnauthorizedHandler | null = null;
+let redirecting = false; // many requests can fail with 401 at once
+
+export function setUnauthorizedHandler(fn: UnauthorizedHandler | null) {
+  onUnauthorized = fn;
+  redirecting = false;
+}
+
 type RequestOptions = {
   /** Send the Bearer token and log out on 401. Default true. */
   auth?: boolean;
   headers?: Record<string, string>;
   signal?: AbortSignal;
 };
+
+const http = axios.create({
+  baseURL: BASE_URL,
+  timeout: 15000,
+  headers: { Accept: "application/json" },
+});
 
 async function request<T>(
   method: string,
@@ -34,54 +51,53 @@ async function request<T>(
 ): Promise<T> {
   const { auth = true, headers = {}, signal } = options;
 
-  const finalHeaders: Record<string, string> = {
-    Accept: "application/json",
-    ...headers,
+  const config: AxiosRequestConfig = {
+    method,
+    url: path,
+    data: body,
+    headers: { ...headers },
+    signal,
   };
-
-  const isFormData =
-    typeof FormData !== "undefined" && body instanceof FormData;
-
-  // For FormData the browser sets Content-Type itself (it adds the boundary).
-  if (body !== undefined && !isFormData) {
-    finalHeaders["Content-Type"] = "application/json";
-  }
 
   if (auth) {
     const token = sessionStorage.getItem("access_token");
-    if (token) finalHeaders.Authorization = `Bearer ${token}`;
+    if (token) config.headers!.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers: finalHeaders,
-    body:
-      body === undefined
-        ? undefined
-        : isFormData
-          ? (body as FormData)
-          : JSON.stringify(body),
-    signal,
-  });
+  try {
+    const res = await http.request<T>(config);
+    return res.data;
+  } catch (err) {
+    // cancelled request: let the caller ignore it
+    if (axios.isCancel(err)) throw err;
 
-  const data = await response.json().catch(() => null);
+    if (axios.isAxiosError(err)) {
+      const status = err.response?.status ?? 0;
+      const data = err.response?.data as
+        | { message?: string; errors?: Record<string, string[]> }
+        | undefined;
 
-  if (!response.ok) {
-    // Token expired or revoked on the server: back to login.
-    if (response.status === 401 && auth) {
-      clearSession();
-      const returnUrl = encodeURIComponent(window.location.pathname);
-      window.location.href = `/login?returnUrl=${returnUrl}`;
+      // Token expired or revoked: clear it and go to login (once).
+      if (status === 401 && auth) {
+        clearSession();
+        if (!redirecting) {
+          redirecting = true;
+          onUnauthorized?.(window.location.pathname);
+        }
+      }
+
+      throw new ApiError(
+        data?.message ??
+          (status === 0
+            ? "Cannot reach the server. Check your connection."
+            : "Request failed. Please try again."),
+        status,
+        data?.errors,
+      );
     }
 
-    throw new ApiError(
-      data?.message ?? "Request failed. Please try again.",
-      response.status,
-      data?.errors,
-    );
+    throw err;
   }
-
-  return data as T;
 }
 
 export const api = {
