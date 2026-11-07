@@ -8,32 +8,50 @@ const KEYS = [
   "permissions",
 ] as const;
 
+const AUTH_EVENT = "auth-changed";
+
+// Tell the app (useAuth) that the session changed.
+function notify(): void {
+  window.dispatchEvent(new Event(AUTH_EVENT));
+}
+
+/**
+ * Listen for login / logout / expired session. Returns an unsubscribe function.
+ */
+export function subscribeSession(callback: () => void): () => void {
+  window.addEventListener(AUTH_EVENT, callback);
+  return () => window.removeEventListener(AUTH_EVENT, callback);
+}
+
 /**
  * Save authentication data after successful login.
  */
 export function saveSession(response: LoginResponse): void {
   sessionStorage.setItem("access_token", response.access_token);
-
   sessionStorage.setItem("token_type", response.token_type);
-
   sessionStorage.setItem(
     "token_expires_at",
     String(Date.now() + response.expires_in * 1000),
   );
-
   sessionStorage.setItem("auth_user", JSON.stringify(response.user));
-
   sessionStorage.setItem(
     "permissions",
     JSON.stringify(response.permission ?? []),
   );
+
+  notify();
 }
 
 /**
  * Remove all authentication data.
  */
 export function clearSession(): void {
+  // only notify if there was something to clear (avoids useless events)
+  const hadSession = sessionStorage.getItem("access_token") !== null;
+
   KEYS.forEach((key) => sessionStorage.removeItem(key));
+
+  if (hadSession) notify();
 }
 
 /**

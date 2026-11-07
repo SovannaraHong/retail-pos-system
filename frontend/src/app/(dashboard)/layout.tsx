@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { getRequiredPermission } from "@/config/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { setUnauthorizedHandler } from "@/libs/api-client";
 import { clearSession } from "@/libs/auth-storage";
 
 import Sidebar from "@/components/layout/sidebar";
@@ -44,6 +45,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       router.replace("/forbidden");
     }
   }, [ready, user, allowed, pathname, router]);
+
+  // When any API call returns 401, send the user to login (no full page reload).
+  useEffect(() => {
+    setUnauthorizedHandler((returnUrl) => {
+      router.replace(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [router]);
 
   // Logout handler.
   function handleLogout() {
