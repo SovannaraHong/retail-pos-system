@@ -16,8 +16,10 @@ import {
 } from "lucide-react";
 import { ProductService } from "@/services/product-service";
 import { SaleService } from "@/services/sale-service";
+import { ShiftService } from "@/services/shift-service";
 import type { Product } from "@/types/product";
 import type { KhqrPayment, Sale } from "@/types/sale";
+import type { Shift } from "@/types/shift";
 import { useAuth } from "@/hooks/use-auth";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useProductLookups } from "@/hooks/use-product-lookups";
@@ -26,6 +28,10 @@ import { focusRing, money } from "@/libs/format";
 import { KhqrModal } from "./khqr-modal";
 import { ReceiptModal, type ReceiptData } from "./receipt-modal";
 import { PageSkeleton } from "@/shared/page-skeleton";
+import {
+  CloseShiftModal,
+  OpenShiftModal,
+} from "../../shifts/_components/shift-modals";
 
 type Method = "cash" | "khqr";
 type CartLine = { product: Product; qty: number };
@@ -78,8 +84,10 @@ export function PosView() {
 
   useEffect(() => {
     if (!ready || !canView) return;
+    const controller = new AbortController();
     let cancelled = false;
-    ProductService.getAll(params)
+
+    ProductService.getAll(params, controller.signal)
       .then((res) => {
         if (!cancelled)
           setResult({ key: requestKey, rows: res.data, error: null });
@@ -92,8 +100,10 @@ export function PosView() {
             error: parseApiError(err).message,
           }));
       });
+
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [ready, canView, params, requestKey]);
 
@@ -115,6 +125,37 @@ export function PosView() {
     const t = setTimeout(() => setToast(null), TOAST_MS);
     return () => clearTimeout(t);
   }, [toast]);
+
+  // ---- shift ----
+  const canOpenShift = can("shifts.open");
+  const canCloseShift = can("shifts.close");
+  const [shift, setShift] = useState<Shift | null>(null);
+  const [shiftLoaded, setShiftLoaded] = useState(false);
+  const [shiftModal, setShiftModal] = useState<"open" | "close" | null>(null);
+
+  useEffect(() => {
+    if (!ready || !canView) return;
+    const controller = new AbortController();
+    let cancelled = false;
+
+    ShiftService.current(controller.signal)
+      .then((s) => {
+        if (cancelled) return;
+        setShift(s);
+        setShiftLoaded(true);
+        if (!s && canOpenShift) setShiftModal("open"); // ask once on load
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setShiftLoaded(true);
+        setToast({ type: "error", text: parseApiError(err).message });
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [ready, canView, canOpenShift]);
 
   const qtyInCart = (id: number) =>
     cart.find((l) => l.product.id === id)?.qty ?? 0;
@@ -164,6 +205,7 @@ export function PosView() {
   const canPay =
     cart.length > 0 &&
     canCreate &&
+    !!shift && // must have an open shift
     !busy &&
     (method === "khqr" || (Number.isFinite(received) && received >= total));
 
@@ -231,6 +273,43 @@ export function PosView() {
     <div className="grid w-full items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
       {/* ================= LEFT: products ================= */}
       <div className="min-w-0 space-y-5">
+        {/* shift bar */}
+        {shiftLoaded && (
+          <div
+            className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-sm ${
+              shift
+                ? "border-[#cfeedd] bg-[#eefaf3] text-[#1f6b41]"
+                : "border-[#fde7c3] bg-[#fff8ea] text-[#9a5b06]"
+            }`}
+          >
+            <span className="font-semibold">
+              {shift
+                ? `Shift open since ${new Date(shift.opened_at).toLocaleString()}`
+                : "No open shift. Open a shift to start selling."}
+            </span>
+
+            {shift
+              ? canCloseShift && (
+                  <button
+                    type="button"
+                    onClick={() => setShiftModal("close")}
+                    className={`rounded-lg bg-white px-3 py-1.5 font-semibold text-[#e5484d] shadow-sm hover:bg-[#ffe9ec] ${focusRing}`}
+                  >
+                    Close shift
+                  </button>
+                )
+              : canOpenShift && (
+                  <button
+                    type="button"
+                    onClick={() => setShiftModal("open")}
+                    className={`rounded-lg bg-[#2f6fe8] px-3 py-1.5 font-semibold text-white hover:bg-[#1d5fe0] ${focusRing}`}
+                  >
+                    Open shift
+                  </button>
+                )}
+          </div>
+        )}
+
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7d8aa1]" />
           <input
@@ -301,7 +380,7 @@ export function PosView() {
             </div>
           ) : rows.length === 0 ? (
             <div
-              className={`${card}  px-6 py-16 bg-red-50 text-center text-sm text-[#6c7a93]`}
+              className={`${card} px-6 py-16 text-center text-sm text-[#6c7a93]`}
             >
               No products found.
             </div>
@@ -329,7 +408,7 @@ export function PosView() {
                         : "border-[#eef1f6] bg-white shadow-[0_1px_3px_rgba(30,60,120,0.06)] hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(30,60,120,0.12)]"
                     } ${inCart ? "ring-2 ring-[#2f6fe8]" : ""} ${focusRing}`}
                   >
-                    {/* image: soft gray backdrop, white product backgrounds blend in */}
+                    {/* image fills the whole box */}
                     <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-b from-[#cdd6e9] to-[#606265]">
                       {p.image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -366,7 +445,7 @@ export function PosView() {
                       )}
                     </div>
 
-                    <div className="p-3.5 bg-[#ffffff]">
+                    <div className="bg-[#ffffff] p-3.5">
                       <p
                         className={`truncate text-[15px] font-bold ${
                           out ? "text-[#8a96ab]" : "text-[#1c2740]"
@@ -384,6 +463,9 @@ export function PosView() {
                         {p.track_stock
                           ? `${p.stock_qty} Available`
                           : "No stock tracking"}
+                      </p>
+                      <p className="text-gray-600 line-clamp-2  text-[10px]">
+                        {p.description}
                       </p>
                       <p
                         className={`mt-3 text-xl font-extrabold tabular-nums ${
@@ -619,6 +701,11 @@ export function PosView() {
             You don&apos;t have permission to create sales.
           </p>
         )}
+        {shiftLoaded && !shift && (
+          <p className="mt-2 text-center text-xs text-[#9a5b06]">
+            Open a shift to process sales.
+          </p>
+        )}
       </aside>
 
       {toast && (
@@ -647,6 +734,35 @@ export function PosView() {
 
       {receipt && (
         <ReceiptModal data={receipt} onClose={() => setReceipt(null)} />
+      )}
+
+      {shiftModal === "open" && (
+        <OpenShiftModal
+          onClose={() => setShiftModal(null)}
+          onOpened={(s) => {
+            setShift(s);
+            setShiftModal(null);
+            setToast({ type: "ok", text: "Shift opened" });
+          }}
+        />
+      )}
+
+      {shiftModal === "close" && (
+        <CloseShiftModal
+          onClose={() => setShiftModal(null)}
+          onClosed={(s) => {
+            setShift(null);
+            setShiftModal(null);
+            const d = s.difference ?? 0;
+            setToast({
+              type: d === 0 ? "ok" : "error",
+              text:
+                d === 0
+                  ? "Shift closed. Cash matches."
+                  : `Shift closed. ${d > 0 ? "Over" : "Short"} by ${money(Math.abs(d))}`,
+            });
+          }}
+        />
       )}
     </div>
   );
