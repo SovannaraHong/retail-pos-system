@@ -78,9 +78,10 @@ function toFormData(payload: object): FormData {
 }
 
 export const ProductService = {
-  getAll(params?: ProductQuery) {
+  getAll(params?: ProductQuery, signal?: AbortSignal) {
     return api.get<PaginatedResponse<Product>>(
       `/products${buildQuery(params)}`,
+      { signal },
     );
   },
 
