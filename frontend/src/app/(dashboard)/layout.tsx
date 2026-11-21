@@ -66,7 +66,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f6f5]">
+    <div className="min-h-screen bg-[#f7f6f5] overflow-x-hidden">
       {/* Sidebar */}
       <Sidebar
         collapsed={collapsed}
@@ -78,7 +78,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Main content */}
       <div
-        className={`flex min-h-screen min-w-0 flex-col transition-[padding] duration-200 ${
+        className={`flex min-h-screen w-full min-w-0 flex-col transition-[padding] duration-200 ${
           collapsed ? "lg:pl-[84px]" : "lg:pl-[250px]"
         }`}
       >
@@ -90,7 +90,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         />
 
         {/* Page content */}
-        <main className="w-full min-w-0 flex-1 px-4 py-5 sm:px-6">
+        <main className="w-full min-w-0 flex-1 overflow-x-hidden px-3.5 py-4 sm:px-6 sm:py-5">
           {children}
         </main>
       </div>

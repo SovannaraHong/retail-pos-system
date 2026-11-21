@@ -47,14 +47,14 @@ export default function DateRangePicker({
   };
 
   return (
-    <div className="flex flex-col gap-2 lg:items-end">
-      <div className="max-w-full overflow-x-auto">
+    <div className="flex w-full min-w-0 flex-col gap-2.5 lg:w-auto lg:items-end">
+      <div className="w-full min-w-0 overflow-x-auto pb-0.5">
         <Segmented options={OPTIONS} value={value.key} onChange={pick} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-[#5d6b85]">
         <label className="flex items-center gap-1.5">
-          From
+          <span>From</span>
           <input
             type="date"
             className={input}
@@ -64,7 +64,7 @@ export default function DateRangePicker({
           />
         </label>
         <label className="flex items-center gap-1.5">
-          To
+          <span>To</span>
           <input
             type="date"
             className={input}
@@ -74,7 +74,7 @@ export default function DateRangePicker({
             onChange={(e) => edit({ to: e.target.value })}
           />
         </label>
-        {error && <span className="font-medium text-[#d64545]">{error}</span>}
+        {error && <span className="w-full font-medium text-[#d64545] sm:w-auto">{error}</span>}
       </div>
     </div>
   );
