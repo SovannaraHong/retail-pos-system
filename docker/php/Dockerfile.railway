@@ -1,13 +1,16 @@
 
 FROM php:8.5-apache
 
+# Install PHP extensions using the PHP extension installer
+COPY --from=ghcr.io/mlocati/php-extension-installer:latest \
+    /usr/bin/install-php-extensions \
+    /usr/local/bin/
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git \
         unzip \
-        libicu-dev \
-        libzip-dev \
-    && docker-php-ext-install \
+    && install-php-extensions \
         pdo_mysql \
         bcmath \
         intl \
@@ -23,10 +26,15 @@ WORKDIR /var/www/html
 
 COPY backend/ /var/www/html/
 
+# Configure Apache to serve Laravel public directory
 RUN sed -ri \
     -e 's!/var/www/html!/var/www/html/public!g' \
-    /etc/apache2/sites-available/000-default.conf
+    /etc/apache2/sites-available/000-default.conf \
+    && printf '<Directory /var/www/html/public>\n    AllowOverride All\n    Require all granted\n</Directory>\n' \
+    > /etc/apache2/conf-available/laravel.conf \
+    && a2enconf laravel
 
+# Install production dependencies
 RUN composer install \
     --no-dev \
     --no-interaction \
