@@ -84,10 +84,9 @@ class RoleController extends Controller
 
         if (
             in_array($role->name, self::PROTECTED_ROLES, true)
-            && $validated->filled('name')
-            && $validated->input('name') !== $role->name
+            && isset($validated['name'])
+            && $validated['name'] !== $role->name
         ) {
-
             return response()->json(['message' => 'This role cannot be renamed.'], 403);
         }
 

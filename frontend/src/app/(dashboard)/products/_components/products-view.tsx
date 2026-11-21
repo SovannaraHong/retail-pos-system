@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, PackageSearch, Plus, Search, Trash2 } from "lucide-react";
 import {
@@ -13,14 +13,18 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useProductLookups } from "@/hooks/use-product-lookups";
 import { parseApiError } from "@/libs/api-error";
 import { focusRing } from "@/libs/format";
-import { ConfirmDelete } from "../../../../shared/confirm-delete";
-import { Pagination } from "../../../../shared/pagination";
+// NOTE: adjust these to your real alias path (e.g. "@/app/shared/..." or "@/shared/...")
+import { ConfirmDelete } from "@/shared/confirm-delete";
+import { Pagination } from "@/shared/pagination";
+import { PageSkeleton, TableSkeleton } from "@/shared/page-skeleton";
 import { ProductDrawer } from "./product-drawer";
-import { PageSkeleton, TableSkeleton } from "../../../../shared/page-skeleton";
 import { ProductTable } from "./product-table";
 import { ProductDetailModal } from "./product-detail-modal";
 
 type StatusFilter = "all" | "active" | "inactive";
+
+/** What the delete dialog needs: rows from other pages are only known by id. */
+type DeleteTarget = { id: number; name: string };
 
 // ---- settings ----
 const DEFAULT_PER_PAGE = 10;
@@ -44,6 +48,8 @@ const control =
 const primaryBtn =
   "inline-flex items-center justify-center gap-2 rounded-lg bg-[#2f6fe8] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#1d5fe0]";
 
+const NO_SELECTION: Set<number> = new Set();
+
 export function ProductsView() {
   const router = useRouter();
   const { ready, can } = useAuth();
@@ -62,6 +68,20 @@ export function ProductsView() {
   const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
   const page = pageState.key === filterKey ? pageState.page : 1;
   const setPage = (p: number) => setPageState({ key: filterKey, page: p });
+
+  // selection belongs to one set of filters too: changing a filter clears it,
+  // so you can never delete rows that are no longer visible by accident.
+  // (changing the page keeps it, so multi-page selection still works)
+  const [selection, setSelection] = useState<{
+    key: string;
+    ids: Set<number>;
+  }>({ key: filterKey, ids: new Set() });
+  const selected = selection.key === filterKey ? selection.ids : NO_SELECTION;
+  const updateSelected = (fn: (s: Set<number>) => Set<number>) =>
+    setSelection((cur) => ({
+      key: filterKey,
+      ids: fn(cur.key === filterKey ? cur.ids : new Set()),
+    }));
 
   // ---- data ----
   // reloadKey: change it to refetch the list
@@ -105,17 +125,24 @@ export function ProductsView() {
   const showSkeleton = firstLoad || (fetching && result.error !== null);
 
   // ---- ui ----
-  const [selected, setSelected] = useState<Set<number>>(new Set());
   const [drawer, setDrawer] = useState<{ product: Product | null } | null>(
     null,
   );
   const [viewing, setViewing] = useState<Product | null>(null);
-  const [toDelete, setToDelete] = useState<Product[] | null>(null);
+  const [toDelete, setToDelete] = useState<DeleteTarget[] | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<{
     type: "ok" | "error";
     text: string;
   } | null>(null);
+
+  // stable handlers, so child effects don't re-run on every parent render
+  const closeViewing = useCallback(() => setViewing(null), []);
+  const closeDrawer = useCallback(() => setDrawer(null), []);
+  const editFromModal = useCallback((p: Product) => {
+    setViewing(null);
+    setDrawer({ product: p });
+  }, []);
 
   // no permission -> go to /forbidden
   useEffect(() => {
@@ -177,7 +204,7 @@ export function ProductsView() {
 
   // select / unselect one row
   const toggleRow = (id: number) =>
-    setSelected((s) => {
+    updateSelected((s) => {
       const n = new Set(s);
       if (n.has(id)) n.delete(id);
       else n.add(id);
@@ -186,7 +213,7 @@ export function ProductsView() {
 
   // select / unselect every row on this page
   const togglePage = () =>
-    setSelected((s) => {
+    updateSelected((s) => {
       const n = new Set(s);
       const all = rows.length > 0 && rows.every((p) => n.has(p.id));
       rows.forEach((p) => (all ? n.delete(p.id) : n.add(p.id)));
@@ -204,7 +231,7 @@ export function ProductsView() {
     const okCount = toDelete.length - failed;
 
     // unselect only the ones that were really deleted
-    setSelected((s) => {
+    updateSelected((s) => {
       const n = new Set(s);
       toDelete.forEach(
         (p, i) => results[i].status === "fulfilled" && n.delete(p.id),
@@ -238,6 +265,10 @@ export function ProductsView() {
   const canCreate = can("products.create");
   const canUpdate = can("products.update");
   const canDelete = can("products.delete");
+
+  // how many selected products are not on the page you are looking at
+  const offPageCount =
+    selected.size - rows.filter((p) => selected.has(p.id)).length;
 
   return (
     <div className="w-full space-y-5">
@@ -396,7 +427,7 @@ export function ProductsView() {
               onToggle={toggleRow}
               onTogglePage={togglePage}
               onEdit={(p) => setDrawer({ product: p })}
-              onDelete={(p) => setToDelete([p])}
+              onDelete={(p) => setToDelete([{ id: p.id, name: p.name }])}
             />
             <Pagination
               page={page}
@@ -416,7 +447,15 @@ export function ProductsView() {
       {selected.size > 0 && (
         <div className="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
           <div className="flex items-center gap-4 rounded-xl bg-[#1c2740] py-2.5 pl-5 pr-2.5 text-sm text-white shadow-2xl">
-            <span className="tabular-nums">{selected.size} selected</span>
+            <span className="tabular-nums">
+              {selected.size} selected
+              {offPageCount > 0 && (
+                <span className="text-slate-300">
+                  {" "}
+                  ({offPageCount} on other pages)
+                </span>
+              )}
+            </span>
             {canDelete && (
               <button
                 type="button"
@@ -427,8 +466,8 @@ export function ProductsView() {
                     (id) => !known.some((p) => p.id === id),
                   );
                   setToDelete([
-                    ...known,
-                    ...missing.map((id) => ({ id, name: `#${id}` }) as Product),
+                    ...known.map((p) => ({ id: p.id, name: p.name })),
+                    ...missing.map((id) => ({ id, name: `#${id}` })),
                   ]);
                 }}
                 className={`inline-flex items-center gap-1.5 rounded-lg bg-[#e5484d] px-3 py-1.5 font-medium hover:bg-[#cf3a3f] ${focusRing}`}
@@ -439,7 +478,7 @@ export function ProductsView() {
             )}
             <button
               type="button"
-              onClick={() => setSelected(new Set())}
+              onClick={() => updateSelected(() => new Set())}
               className={`rounded-lg px-3 py-1.5 font-medium text-slate-300 hover:bg-white/10 hover:text-white ${focusRing}`}
             >
               Clear
@@ -457,17 +496,16 @@ export function ProductsView() {
           {toast.text}
         </div>
       )}
+
       {viewing && (
         <ProductDetailModal
           product={viewing}
           canEdit={canUpdate}
-          onClose={() => setViewing(null)}
-          onEdit={(p) => {
-            setViewing(null);
-            setDrawer({ product: p });
-          }}
+          onClose={closeViewing}
+          onEdit={editFromModal}
         />
       )}
+
       {drawer && (
         <ProductDrawer
           key={drawer.product?.id ?? "new"}
@@ -475,7 +513,7 @@ export function ProductsView() {
           categories={lookups.categories}
           brands={lookups.brands}
           suppliers={lookups.suppliers}
-          onClose={() => setDrawer(null)}
+          onClose={closeDrawer}
           onSaved={(mode) => {
             // the drawer slides out by itself, then calls onClose above
             setToast({
