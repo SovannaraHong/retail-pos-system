@@ -285,11 +285,11 @@ function Dashboard() {
     <div className="space-y-5">
       <WelcomeBanner />
 
-      {/* Date range */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      {/* Date range header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-base font-bold text-[#1c2740]">Store Overview</h1>
-          <p className="text-xs text-[#7d8aa1]">
+          <p className="truncate text-xs text-[#7d8aa1]">
             {range.from === range.to
               ? range.from
               : `${range.from} to ${range.to}`}{" "}

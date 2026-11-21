@@ -15,17 +15,19 @@ export function CardHeader({
   right?: React.ReactNode;
 }) {
   return (
-    <div className="mb-4 flex items-center justify-between gap-3">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5">
       <h2 className="text-sm font-bold text-[#1c2740]">{title}</h2>
-      {right}
-      {href && (
-        <Link
-          href={href}
-          className="text-xs font-semibold text-[#1d5fe0] hover:underline"
-        >
-          {linkLabel ?? "View All"}
-        </Link>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {right}
+        {href && (
+          <Link
+            href={href}
+            className="text-xs font-semibold text-[#1d5fe0] hover:underline"
+          >
+            {linkLabel ?? "View All"}
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

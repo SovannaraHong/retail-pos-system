@@ -17,15 +17,15 @@ export default function WelcomeBanner() {
   const name = user?.name || user?.email || "there";
 
   return (
-    <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#5181e8] to-[#f3f7ff] px-6 py-7 sm:px-8">
-      <div className="relative z-10">
-        <p className="text-lg font-semibold text-white">
+    <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#5181e8] to-[#f3f7ff] p-5 sm:px-8 sm:py-7">
+      <div className="relative z-10 max-w-full">
+        <p className="text-base font-semibold text-white sm:text-lg">
           {greeting()}, <span aria-hidden>👋</span>
         </p>
-        <h2 className="mt-1 text-[28px] font-extrabold tracking-tight text-white">
+        <h2 className="mt-1 break-words text-2xl font-extrabold tracking-tight text-white sm:text-[28px]">
           {name}!
         </h2>
-        <p className="mt-2 text-sm text-white">
+        <p className="mt-1.5 text-xs text-white/90 sm:mt-2 sm:text-sm sm:text-white">
           Here&apos;s how your store is doing today.
         </p>
       </div>
@@ -33,7 +33,7 @@ export default function WelcomeBanner() {
       {/* Decorative illustration */}
       <div
         aria-hidden
-        className="pointer-events-none absolute bottom-0 right-6 hidden items-end gap-4 sm:flex md:right-16"
+        className="pointer-events-none absolute bottom-0 right-4 hidden items-end gap-4 md:flex md:right-16"
       >
         {/* <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/70 text-[#22a05a]">
           <Coffee size={30} />
