@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Banknote,
   CheckCircle2,
@@ -46,6 +46,7 @@ export function ReceiptModal({
 }) {
   const { settings } = useStoreSettings();
   const [activeTab, setActiveTab] = useState<"summary" | "slip">("summary");
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const MethodIcon = data.method.toLowerCase().includes("qr") ? QrCode : Banknote;
   const storeName = settings?.store_name || "RETAIL POS";
@@ -56,13 +57,11 @@ export function ReceiptModal({
   const receiptFooter = settings?.receipt_footer || "Thank you for shopping with us! Please come again.";
   const receiptDate = data.date || new Date().toLocaleString();
 
-  // Clean pop-up print helper that prints ONLY the receipt on 1 single page without multi-page headers/footers
+  // Hidden iframe printing: Opens the native print dialog directly on the main window
+  // with ZERO extra browser windows, popups, or "about:blank" tabs.
   const handlePrint = () => {
-    const printWindow = window.open("", "_blank", "width=380,height=600");
-    if (!printWindow) {
-      window.print();
-      return;
-    }
+    const iframe = iframeRef.current;
+    if (!iframe) return;
 
     const itemsHtml =
       data.items && data.items.length > 0
@@ -71,9 +70,9 @@ export function ReceiptModal({
               (it) => `
             <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
               <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">
-                ${it.product_name} <span style="color:#666;">x${it.qty}</span>
+                ${it.product_name} <span style="color:#555;">x${it.qty}</span>
               </span>
-              <span style="font-weight:600;white-space:nowrap;">${money(it.line_total)}</span>
+              <span style="font-weight:700;white-space:nowrap;">${money(it.line_total)}</span>
             </div>
           `,
             )
@@ -81,7 +80,7 @@ export function ReceiptModal({
         : `
           <div style="display:flex;justify-content:space-between;">
             <span>Sale Item</span>
-            <span style="font-weight:600;">${money(data.total)}</span>
+            <span style="font-weight:700;">${money(data.total)}</span>
           </div>
         `;
 
@@ -112,26 +111,33 @@ export function ReceiptModal({
       <html>
         <head>
           <meta charset="utf-8">
-          <title>Receipt - ${data.invoice}</title>
+          <title>${storeName} - ${data.invoice}</title>
           <style>
             @page {
-              size: auto;
+              size: 80mm auto;
               margin: 0;
+            }
+            @media print {
+              html, body {
+                width: 80mm;
+                margin: 0;
+                padding: 0;
+              }
             }
             body {
               font-family: 'Courier New', Courier, monospace, system-ui;
               font-size: 11px;
+              line-height: 1.35;
               color: #000;
               background: #fff;
               margin: 0;
               padding: 10px 14px;
-              width: 100%;
               box-sizing: border-box;
             }
             .center { text-align: center; }
             .bold { font-weight: bold; }
             .divider {
-              border-top: 1px dashed #666;
+              border-top: 1px dashed #444;
               margin: 8px 0;
             }
             .row {
@@ -143,16 +149,16 @@ export function ReceiptModal({
         </head>
         <body>
           <div class="center">
-            <div style="font-size:14px;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;">${storeName}</div>
-            <div style="font-size:10px;color:#444;margin-top:2px;">${storeAddress}</div>
-            <div style="font-size:10px;color:#444;">Tel: ${storePhone}</div>
-            ${taxId ? `<div style="font-size:10px;color:#444;">VAT/TIN: ${taxId}</div>` : ""}
+            <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;">${storeName}</div>
+            <div style="font-size:10px;color:#333;margin-top:2px;">${storeAddress}</div>
+            <div style="font-size:10px;color:#333;">Tel: ${storePhone}</div>
+            ${taxId ? `<div style="font-size:10px;color:#333;">VAT/TIN: ${taxId}</div>` : ""}
             ${receiptHeader ? `<div style="font-size:10px;font-style:italic;margin-top:4px;">${receiptHeader}</div>` : ""}
           </div>
 
           <div class="divider"></div>
 
-          <div style="font-size:10px;color:#333;">
+          <div style="font-size:10px;color:#222;">
             <div class="row"><span>INVOICE:</span><span class="bold">${data.invoice}</span></div>
             <div class="row"><span>DATE:</span><span>${receiptDate}</span></div>
             ${data.cashierName ? `<div class="row"><span>CASHIER:</span><span>${data.cashierName}</span></div>` : ""}
@@ -161,7 +167,7 @@ export function ReceiptModal({
 
           <div class="divider"></div>
 
-          <div class="row bold" style="color:#222;font-size:10.5px;margin-bottom:6px;">
+          <div class="row bold" style="font-size:10.5px;margin-bottom:6px;">
             <span>ITEM / QTY</span>
             <span>AMOUNT</span>
           </div>
@@ -191,29 +197,36 @@ export function ReceiptModal({
 
           <div class="divider"></div>
 
-          <div class="center" style="font-size:10px;color:#555;margin-top:6px;">
+          <div class="center" style="font-size:10px;color:#444;margin-top:6px;">
             <div>${receiptFooter}</div>
-            <div style="font-size:9px;color:#888;margin-top:4px;">*** Thank you for your business ***</div>
+            <div style="font-size:9px;color:#666;margin-top:4px;">*** Thank you for your business ***</div>
           </div>
-
-          <script>
-            window.onload = function() {
-              window.focus();
-              window.print();
-              setTimeout(function() { window.close(); }, 500);
-            };
-          </script>
         </body>
       </html>
     `;
 
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      }, 150);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4 backdrop-blur-[2px]">
+      {/* Hidden isolated iframe for printing - zero extra windows or popup blockers */}
+      <iframe
+        ref={iframeRef}
+        title="receipt-printer"
+        className="absolute -left-[9999px] -top-[9999px] h-0 w-0 border-0"
+      />
+
       {/* Main Container */}
       <div
         role="dialog"
