@@ -7,6 +7,7 @@ import { ChevronDown, ChevronLeft, LogOut, Store, X } from "lucide-react";
 
 import { navigation } from "@/config/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { useStoreSettings } from "@/hooks/use-store-settings";
 
 type SidebarProps = {
   collapsed: boolean;
@@ -25,6 +26,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { permissions } = useAuth();
+  const { settings } = useStoreSettings();
   const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>({});
 
   // Hide pages the user has no permission for, and empty groups.
@@ -87,13 +89,17 @@ export default function Sidebar({
 
             {!collapsed && (
               <>
-                <span className="mt-2 text-[24px] font-extrabold leading-none tracking-wide">
-                  RPOS
+                <span className="mt-2 max-w-[200px] truncate px-2 text-[20px] font-extrabold leading-tight tracking-wide">
+                  {settings?.store_name || "RPOS"}
                 </span>
-                <span className="mt-1.5 text-[12px] leading-tight text-white/90">
-                  Retail POS
-                  <br />
-                  Management System
+                <span className="mt-1 text-[11px] leading-tight text-white/90">
+                  {settings?.store_name ? "Retail POS System" : (
+                    <>
+                      Retail POS
+                      <br />
+                      Management System
+                    </>
+                  )}
                 </span>
               </>
             )}

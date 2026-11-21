@@ -17,11 +17,13 @@ import {
 } from "lucide-react";
 import { SettingService } from "@/services/setting-service";
 import type { StoreSettings } from "@/types/setting";
+import { useStoreSettings } from "@/hooks/use-store-settings";
 import { useAuth } from "@/hooks/use-auth";
 import { PageSkeleton } from "@/shared/page-skeleton";
 
 export default function SettingsPage() {
   const { can } = useAuth();
+  const { updateCachedSettings } = useStoreSettings();
   const canUpdate = can("settings.update") || can("admin");
 
   const [loading, setLoading] = useState(true);
@@ -72,7 +74,10 @@ export default function SettingsPage() {
     setSuccess(false);
 
     try {
-      await SettingService.update(form);
+      const res = await SettingService.update(form);
+      if (res.data) {
+        updateCachedSettings(res.data);
+      }
       setSuccess(true);
       setTimeout(() => setSuccess(false), 4000);
     } catch (err: any) {
