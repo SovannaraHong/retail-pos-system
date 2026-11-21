@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   Banknote,
   CheckCircle2,
@@ -46,7 +46,6 @@ export function ReceiptModal({
 }) {
   const { settings } = useStoreSettings();
   const [activeTab, setActiveTab] = useState<"summary" | "slip">("summary");
-  const receiptPrintRef = useRef<HTMLDivElement>(null);
 
   const MethodIcon = data.method.toLowerCase().includes("qr") ? QrCode : Banknote;
   const storeName = settings?.store_name || "RETAIL POS";
@@ -55,37 +54,166 @@ export function ReceiptModal({
   const taxId = settings?.tax_id;
   const receiptHeader = settings?.receipt_header;
   const receiptFooter = settings?.receipt_footer || "Thank you for shopping with us! Please come again.";
+  const receiptDate = data.date || new Date().toLocaleString();
 
+  // Clean pop-up print helper that prints ONLY the receipt on 1 single page without multi-page headers/footers
   const handlePrint = () => {
-    window.print();
+    const printWindow = window.open("", "_blank", "width=380,height=600");
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    const itemsHtml =
+      data.items && data.items.length > 0
+        ? data.items
+            .map(
+              (it) => `
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">
+                ${it.product_name} <span style="color:#666;">x${it.qty}</span>
+              </span>
+              <span style="font-weight:600;white-space:nowrap;">${money(it.line_total)}</span>
+            </div>
+          `,
+            )
+            .join("")
+        : `
+          <div style="display:flex;justify-content:space-between;">
+            <span>Sale Item</span>
+            <span style="font-weight:600;">${money(data.total)}</span>
+          </div>
+        `;
+
+    const subtotalHtml =
+      data.subtotal !== undefined && data.subtotal !== data.total
+        ? `<div style="display:flex;justify-content:space-between;color:#555;margin-bottom:3px;">
+             <span>Subtotal</span>
+             <span>${money(data.subtotal)}</span>
+           </div>`
+        : "";
+
+    const discountHtml = data.discount
+      ? `<div style="display:flex;justify-content:space-between;color:#15803d;margin-bottom:3px;">
+           <span>Discount</span>
+           <span>-${money(data.discount)}</span>
+         </div>`
+      : "";
+
+    const taxHtml = data.tax
+      ? `<div style="display:flex;justify-content:space-between;color:#555;margin-bottom:3px;">
+           <span>Tax</span>
+           <span>+${money(data.tax)}</span>
+         </div>`
+      : "";
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Receipt - ${data.invoice}</title>
+          <style>
+            @page {
+              size: auto;
+              margin: 0;
+            }
+            body {
+              font-family: 'Courier New', Courier, monospace, system-ui;
+              font-size: 11px;
+              color: #000;
+              background: #fff;
+              margin: 0;
+              padding: 10px 14px;
+              width: 100%;
+              box-sizing: border-box;
+            }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            .divider {
+              border-top: 1px dashed #666;
+              margin: 8px 0;
+            }
+            .row {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 3px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="center">
+            <div style="font-size:14px;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;">${storeName}</div>
+            <div style="font-size:10px;color:#444;margin-top:2px;">${storeAddress}</div>
+            <div style="font-size:10px;color:#444;">Tel: ${storePhone}</div>
+            ${taxId ? `<div style="font-size:10px;color:#444;">VAT/TIN: ${taxId}</div>` : ""}
+            ${receiptHeader ? `<div style="font-size:10px;font-style:italic;margin-top:4px;">${receiptHeader}</div>` : ""}
+          </div>
+
+          <div class="divider"></div>
+
+          <div style="font-size:10px;color:#333;">
+            <div class="row"><span>INVOICE:</span><span class="bold">${data.invoice}</span></div>
+            <div class="row"><span>DATE:</span><span>${receiptDate}</span></div>
+            ${data.cashierName ? `<div class="row"><span>CASHIER:</span><span>${data.cashierName}</span></div>` : ""}
+            <div class="row"><span>PAYMENT:</span><span class="bold">${data.method.toUpperCase()}</span></div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="row bold" style="color:#222;font-size:10.5px;margin-bottom:6px;">
+            <span>ITEM / QTY</span>
+            <span>AMOUNT</span>
+          </div>
+
+          ${itemsHtml}
+
+          <div class="divider"></div>
+
+          ${subtotalHtml}
+          ${discountHtml}
+          ${taxHtml}
+
+          <div class="row bold" style="font-size:13px;margin:5px 0;">
+            <span>TOTAL DUE</span>
+            <span>${money(data.total)}</span>
+          </div>
+
+          <div class="row" style="font-weight:600;margin-bottom:3px;">
+            <span>PAID (${data.method.toUpperCase()})</span>
+            <span>${money(data.paid)}</span>
+          </div>
+
+          <div class="row bold" style="color:#15803d;font-size:11.5px;">
+            <span>CHANGE</span>
+            <span>${money(data.change)}</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="center" style="font-size:10px;color:#555;margin-top:6px;">
+            <div>${receiptFooter}</div>
+            <div style="font-size:9px;color:#888;margin-top:4px;">*** Thank you for your business ***</div>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.focus();
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
   };
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4 backdrop-blur-[2px]">
-      {/* Print Specific CSS - Ensures pure thermal 80mm receipt printing */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #thermal-receipt-print-area, #thermal-receipt-print-area * {
-            visibility: visible;
-          }
-          #thermal-receipt-print-area {
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 80mm;
-            padding: 4mm;
-            margin: 0;
-            background: #fff !important;
-            color: #000 !important;
-            font-family: monospace !important;
-            box-shadow: none !important;
-          }
-        }
-      `}</style>
-
       {/* Main Container */}
       <div
         role="dialog"
@@ -220,14 +348,10 @@ export function ReceiptModal({
           </div>
         )}
 
-        {/* Body View 2: Realistic Thermal Receipt (Printable) */}
+        {/* Body View 2: Realistic Thermal Receipt (Preview) */}
         {activeTab === "slip" && (
           <div className="overflow-y-auto p-4 [scrollbar-width:thin]">
-            <div
-              id="thermal-receipt-print-area"
-              ref={receiptPrintRef}
-              className="rounded-xl border border-dashed border-[#b6c2d6] bg-white p-5 font-mono text-[11px] text-[#1c2740] shadow-sm"
-            >
+            <div className="rounded-xl border border-dashed border-[#b6c2d6] bg-white p-5 font-mono text-[11px] text-[#1c2740] shadow-sm">
               {/* Header */}
               <div className="text-center">
                 <p className="text-sm font-black uppercase tracking-wider">{storeName}</p>
@@ -249,7 +373,7 @@ export function ReceiptModal({
                 </div>
                 <div className="flex justify-between">
                   <span>DATE:</span>
-                  <span>{data.date || new Date().toLocaleString()}</span>
+                  <span>{receiptDate}</span>
                 </div>
                 {data.cashierName && (
                   <div className="flex justify-between">
@@ -340,7 +464,7 @@ export function ReceiptModal({
           <button
             type="button"
             onClick={handlePrint}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#cbd5e1] bg-white py-2.5 text-xs font-bold text-[#1c2740] shadow-sm hover:bg-[#f1f5f9] ${focusRing}`}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#cbd5e1] bg-white py-2.5 text-xs font-bold text-[#1c2740] shadow-sm hover:bg-[#f1f5fd] ${focusRing}`}
           >
             <Printer className="h-4 w-4 text-[#2f6fe8]" />
             Print Receipt

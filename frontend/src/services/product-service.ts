@@ -14,6 +14,7 @@ export interface ProductQuery {
   supplier_id?: number;
   is_active?: boolean;
   track_stock?: boolean;
+  low_stock?: boolean;
   sort_by?: string;
   sort_order?: "asc" | "desc";
 }
