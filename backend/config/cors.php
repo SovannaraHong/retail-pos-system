@@ -12,7 +12,7 @@ return [
     'allowed_methods' => ['*'],
 
 
-    'allowed_origins' => array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,https://retail-pos-system-drab-two.vercel.app')))),
+    'allowed_origins' => array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,https://hongsovannara.store,https://www.hongsovannara.store,https://retail-pos-system-drab-two.vercel.app')))),
 
     'allowed_origins_patterns' => [],
 
