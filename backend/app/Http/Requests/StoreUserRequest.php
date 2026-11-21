@@ -33,7 +33,7 @@ class StoreUserRequest extends FormRequest
             'pin'           => ['nullable', 'digits_between:4,6'],
             'is_active'     => ['nullable', 'boolean'],
             'image'         => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-            'role'          => ['nullable', 'integer', Rule::exists('roles', 'id')->where('guard_name', 'api')],
+            'role_id' => ['nullable', 'integer', Rule::exists('roles', 'id')->where('guard_name', 'api')],
         ];
     }
 }

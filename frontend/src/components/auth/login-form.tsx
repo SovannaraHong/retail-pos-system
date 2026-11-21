@@ -55,12 +55,17 @@ export default function LoginForm() {
   const returnUrl = getSafeReturnUrl(searchParams.get("returnUrl"));
 
   // Already signed in: skip the login page.
+  // useEffect(() => {
+  //   if (getValidToken()) {
+  //     router.replace(returnUrl);
+  //   }
+  // }, [returnUrl, router]);
+
   useEffect(() => {
     if (getValidToken()) {
-      router.replace(returnUrl);
+      router.replace("/dashboard");
     }
-  }, [returnUrl, router]);
-
+  }, [router]);
   // Remove the unwanted tracking parameter from the URL.
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -112,7 +117,8 @@ export default function LoginForm() {
       // The current Laravel API does not process remember-me.
       void remember;
 
-      router.replace(returnUrl);
+      // router.replace(returnUrl);
+      router.replace("/dashboard");
     } catch (err) {
       if (err instanceof ApiError) {
         switch (err.status) {

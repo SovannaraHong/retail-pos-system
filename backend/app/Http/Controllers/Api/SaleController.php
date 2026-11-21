@@ -6,17 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSaleRequest;
 use App\Http\Requests\VoidSaleRequest;
 use App\Http\Resources\SaleResource;
-use App\Models\Products;
 use App\Models\Sales;
-use App\Models\Shifts;
 use App\Services\CheckoutService;
 use App\Services\StockService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Str;
 
 class SaleController extends Controller
 {

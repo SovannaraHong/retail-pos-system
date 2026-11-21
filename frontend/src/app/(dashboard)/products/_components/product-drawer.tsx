@@ -10,6 +10,7 @@ import type {
 } from "@/types/product";
 import type { LookupOption } from "@/hooks/use-product-lookups";
 import { useOverlayTransition } from "@/hooks/use-overlay-transition";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { parseApiError } from "@/libs/api-error";
 import { focusRing } from "@/libs/format";
 import { ProductThumb } from "./product-thumb";
@@ -47,6 +48,8 @@ interface FormState {
 
 const num = (s: string) => (s.trim() === "" ? undefined : Number(s));
 const idOrNull = (s: string) => (s ? Number(s) : null);
+/** null / undefined -> fallback, so inputs never show "null" */
+const str = (v: unknown, fallback = "") => (v == null ? fallback : String(v));
 
 const inputCls =
   "mt-1.5 block w-full rounded-lg border border-[#dfe6f2] bg-[#f4f7fc] px-3 py-2.5 text-sm text-[#1c2740] placeholder:text-[#9aa5b8] focus:border-[#2f6fe8] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2f6fe8]/20";
@@ -119,6 +122,8 @@ export function ProductDrawer({
 }: Props) {
   const isEdit = product !== null;
   const { open, close } = useOverlayTransition(onClose, DURATION);
+  const formRef = useRef<HTMLFormElement>(null);
+  useFocusTrap(formRef);
 
   const [form, setForm] = useState<FormState>({
     name: product?.name ?? "",
@@ -129,12 +134,12 @@ export function ProductDrawer({
     category_id: product?.category?.id ? String(product.category.id) : "",
     brand_id: product?.brand?.id ? String(product.brand.id) : "",
     supplier_id: product?.supplier?.id ? String(product.supplier.id) : "",
-    cost_price: product?.cost_price != null ? String(product.cost_price) : "",
-    sell_price: product ? String(product.sell_price) : "",
-    tax_rate: product ? String(product.tax_rate) : "0",
+    cost_price: str(product?.cost_price),
+    sell_price: str(product?.sell_price),
+    tax_rate: str(product?.tax_rate, "0"),
     track_stock: product?.track_stock ?? true,
-    stock_qty: product ? String(product.stock_qty) : "0",
-    reorder_level: product ? String(product.reorder_level) : "10",
+    stock_qty: str(product?.stock_qty, "0"),
+    reorder_level: str(product?.reorder_level, "10"),
     is_active: product?.is_active ?? true,
   });
 
@@ -193,9 +198,22 @@ export function ProductDrawer({
     setFormError(null);
 
     const local: Record<string, string> = {};
+    const sell = Number(form.sell_price);
+    const tax = form.tax_rate.trim() === "" ? 0 : Number(form.tax_rate);
+
     if (!form.name.trim()) local.name = "Enter a product name.";
-    if (form.sell_price.trim() === "" || Number(form.sell_price) < 0)
+    if (form.sell_price.trim() === "" || !Number.isFinite(sell) || sell < 0)
       local.sell_price = "Enter a selling price of 0 or more.";
+    if (
+      form.cost_price.trim() !== "" &&
+      !(
+        Number.isFinite(Number(form.cost_price)) && Number(form.cost_price) >= 0
+      )
+    )
+      local.cost_price = "Enter a cost price of 0 or more.";
+    if (!(Number.isFinite(tax) && tax >= 0 && tax <= 100))
+      local.tax_rate = "Tax must be between 0 and 100.";
+
     setErrors(local);
     if (Object.keys(local).length) return;
 
@@ -208,7 +226,7 @@ export function ProductDrawer({
       description: form.description.trim() || null,
       unit: form.unit.trim() || null,
       cost_price: num(form.cost_price),
-      sell_price: Number(form.sell_price),
+      sell_price: sell,
       tax_rate: num(form.tax_rate),
       track_stock: form.track_stock,
       reorder_level: num(form.reorder_level),
@@ -260,10 +278,11 @@ export function ProductDrawer({
       aria-modal="true"
       aria-labelledby="drawer-title"
     >
-      {/* backdrop fades in / out */}
+      {/* backdrop fades in / out (not a tab stop: Esc and the X button close) */}
       <button
         type="button"
         aria-label="Close"
+        tabIndex={-1}
         onClick={saving ? undefined : close}
         className={`absolute inset-0 bg-[#0f1a33]/45 transition-opacity duration-300 ease-out motion-reduce:transition-none ${
           open ? "opacity-100" : "opacity-0"
@@ -272,7 +291,9 @@ export function ProductDrawer({
 
       {/* panel slides in from the right */}
       <form
+        ref={formRef}
         onSubmit={submit}
+        noValidate
         className={`relative flex h-full w-full max-w-3xl transform flex-col bg-white shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
@@ -445,6 +466,7 @@ export function ProductDrawer({
               <input
                 type="number"
                 min="0"
+                max="100"
                 step="0.01"
                 value={form.tax_rate}
                 onChange={setText("tax_rate")}

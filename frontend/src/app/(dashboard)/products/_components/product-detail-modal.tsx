@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Package, Pencil, X } from "lucide-react";
 import type { Product } from "@/types/product";
 import { focusRing, money } from "@/libs/format";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { StockPill } from "./stock-pill";
 
 interface Props {
@@ -44,9 +45,20 @@ export function ProductDetailModal({
   onEdit,
   onClose,
 }: Props) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef);
+
+  // keep the latest onClose without re-subscribing the key listener
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   // close with Escape + lock page scroll while open
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseRef.current();
+    };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -54,11 +66,14 @@ export function ProductDetailModal({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, []);
 
+  // Laravel decimal casts can arrive as strings, and cost_price can be null
+  const sell = Number(p.sell_price);
+  const cost = p.cost_price == null ? null : Number(p.cost_price);
   const margin =
-    p.cost_price !== undefined && p.sell_price > 0
-      ? ((p.sell_price - p.cost_price) / p.sell_price) * 100
+    cost !== null && Number.isFinite(cost) && sell > 0
+      ? ((sell - cost) / sell) * 100
       : null;
 
   return (
@@ -67,11 +82,13 @@ export function ProductDetailModal({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={`${p.name} details`}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl outline-none"
       >
         {/* header */}
         <div className="flex items-start gap-4 border-b border-[#f0f3f9] p-5">
@@ -140,9 +157,9 @@ export function ProductDetailModal({
               Pricing
             </h4>
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <Field label="Sell price">{money(p.sell_price)}</Field>
+              <Field label="Sell price">{money(sell)}</Field>
               <Field label="Cost price">
-                {p.cost_price !== undefined ? money(p.cost_price) : null}
+                {cost !== null ? money(cost) : null}
               </Field>
               <Field label="Tax rate">{`${p.tax_rate ?? 0}%`}</Field>
               <Field label="Margin">
@@ -158,10 +175,10 @@ export function ProductDetailModal({
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               <Field label="Track stock">{p.track_stock ? "Yes" : "No"}</Field>
               <Field label="In stock">
-                {p.track_stock ? String(p.stock_qty) : null}
+                {p.track_stock ? String(p.stock_qty ?? 0) : null}
               </Field>
               <Field label="Reorder level">
-                {p.track_stock ? String(p.reorder_level) : null}
+                {p.track_stock ? String(p.reorder_level ?? 0) : null}
               </Field>
             </dl>
           </section>

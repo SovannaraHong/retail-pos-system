@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import type { Product } from "@/types/product";
 import { focusRing, money } from "@/libs/format";
@@ -48,6 +51,34 @@ function IconButton({
   );
 }
 
+/** "Select all" checkbox with a real indeterminate (dash) state. */
+function SelectAll({
+  checked,
+  indeterminate,
+  onChange,
+}: {
+  checked: boolean;
+  indeterminate: boolean;
+  onChange: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      aria-label="Select all on this page"
+      aria-checked={indeterminate ? "mixed" : checked}
+      className={checkbox}
+    />
+  );
+}
+
 export function ProductTable({
   products,
   selected,
@@ -60,8 +91,9 @@ export function ProductTable({
   onEdit,
   onDelete,
 }: Props) {
-  const allSelected =
-    products.length > 0 && products.every((p) => selected.has(p.id));
+  const selectedOnPage = products.filter((p) => selected.has(p.id)).length;
+  const allSelected = products.length > 0 && selectedOnPage === products.length;
+  const someSelected = selectedOnPage > 0 && !allSelected;
   const showActions = canEdit || canDelete;
 
   return (
@@ -73,19 +105,17 @@ export function ProductTable({
         <thead className="bg-[#f4f7fc] text-xs text-[#5d6b85]">
           <tr>
             <th className="w-12 py-3 pl-5">
-              <input
-                type="checkbox"
+              <SelectAll
                 checked={allSelected}
+                indeterminate={someSelected}
                 onChange={onTogglePage}
-                aria-label="Select all on this page"
-                className={checkbox}
               />
             </th>
             <th className="py-3 pr-4 font-medium">Product</th>
             <th className="py-3 pr-4 font-medium">Category</th>
             <th className="py-3 pr-4 text-right font-medium">Price</th>
             <th className="py-3 pr-4 font-medium">Stock</th>
-            <th className="py-3 pr-4 font-medium">Status</th>
+            <th className="py-3 pr-4 font-medium">Stock status</th>
             {showActions && (
               <th className="py-3 pr-5 text-right font-medium">
                 <span className="sr-only">Actions</span>
@@ -116,7 +146,9 @@ export function ProductTable({
                     onView(p);
                   }
                 }}
-                className={`transition-colors hover:bg-[#f8faff] ${isSel ? "bg-[#eef4ff]" : ""}`}
+                className={`cursor-pointer transition-colors hover:bg-[#f8faff] focus-visible:bg-[#f1f5fd] focus-visible:outline-none ${
+                  isSel ? "bg-[#eef4ff]" : ""
+                }`}
               >
                 <td className="py-3 pl-5">
                   <input
@@ -153,7 +185,6 @@ export function ProductTable({
                   {money(p.sell_price)}
                 </td>
                 <td className="py-3 pr-4">
-                  {" "}
                   <StockMeter product={p} />
                 </td>
                 <td className="py-3 pr-4">
