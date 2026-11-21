@@ -25,6 +25,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useProductLookups } from "@/hooks/use-product-lookups";
 import { parseApiError } from "@/libs/api-error";
 import { focusRing, money } from "@/libs/format";
+import { playPaymentSuccessSound } from "@/libs/sound";
 import { KhqrModal } from "./khqr-modal";
 import { ReceiptModal, type ReceiptData } from "./receipt-modal";
 import { PageSkeleton } from "@/shared/page-skeleton";
@@ -219,23 +220,65 @@ export function PosView() {
   const itemsPayload = () =>
     cart.map((l) => ({ product_id: l.product.id, qty: l.qty }));
 
+  // Inspect cart products to detect items reaching low stock (stock_qty - qty <= 10 or <= reorder_level)
+  const getLowStockAlerts = () => {
+    return cart
+      .filter((line) => {
+        if (!line.product.track_stock) return false;
+        const remaining = line.product.stock_qty - line.qty;
+        const threshold = line.product.reorder_level || 10;
+        return remaining <= threshold;
+      })
+      .map((line) => ({
+        name: line.product.name,
+        remaining: Math.max(0, line.product.stock_qty - line.qty),
+      }));
+  };
+
   async function checkout() {
     if (!canPay) return;
     setBusy(true);
     try {
       if (method === "cash") {
+        const lowStockItems = getLowStockAlerts();
+        const cartSnapshot = cart.map((line) => ({
+          product_name: line.product.name,
+          qty: line.qty,
+          unit_price: price(line.product),
+          line_total: price(line.product) * line.qty,
+        }));
+
         const res = await SaleService.create({
           discount: discount || undefined,
           items: itemsPayload(),
           payments: [{ method: "cash", amount: received }],
         });
         const s: Sale = res.data;
+
+        playPaymentSuccessSound();
+        setToast({ type: "ok", text: "Payment received successfully!" });
+
         setReceipt({
           invoice: s.invoice_no,
           method: "Cash",
+          subtotal: s.subtotal,
+          discount: s.discount,
+          tax: s.tax,
           total: s.total,
           paid: s.paid_amount,
           change: s.change_amount,
+          date: s.sold_at ? new Date(s.sold_at).toLocaleString() : new Date().toLocaleString(),
+          cashierName: s.cashier?.name,
+          items: s.items && s.items.length > 0
+            ? s.items.map((i) => ({
+                id: i.id,
+                product_name: i.product_name,
+                qty: i.qty,
+                unit_price: i.unit_price,
+                line_total: i.line_total,
+              }))
+            : cartSnapshot,
+          lowStockItems: lowStockItems.length > 0 ? lowStockItems : undefined,
         });
         resetOrder();
       } else {
@@ -253,13 +296,40 @@ export function PosView() {
   }
 
   function onKhqrPaid(p: KhqrPayment) {
+    const lowStockItems = getLowStockAlerts();
+    const cartSnapshot = cart.map((line) => ({
+      product_name: line.product.name,
+      qty: line.qty,
+      unit_price: price(line.product),
+      line_total: price(line.product) * line.qty,
+    }));
+
+    playPaymentSuccessSound();
+    setToast({ type: "ok", text: "KHQR Payment completed successfully!" });
     setKhqr(null);
+
+    const sale = p.sale;
     setReceipt({
-      invoice: p.sale?.invoice_no ?? p.reference,
+      invoice: sale?.invoice_no ?? p.reference,
       method: "KHQR",
-      total: p.sale?.total ?? p.amount,
+      subtotal: sale?.subtotal,
+      discount: sale?.discount,
+      tax: sale?.tax,
+      total: sale?.total ?? p.amount,
       paid: p.amount,
       change: 0,
+      date: p.paid_at ? new Date(p.paid_at).toLocaleString() : new Date().toLocaleString(),
+      cashierName: p.cashier?.name,
+      items: sale?.items && sale.items.length > 0
+        ? sale.items.map((i) => ({
+            id: i.id,
+            product_name: i.product_name,
+            qty: i.qty,
+            unit_price: i.unit_price,
+            line_total: i.line_total,
+          }))
+        : cartSnapshot,
+      lowStockItems: lowStockItems.length > 0 ? lowStockItems : undefined,
     });
     resetOrder();
   }
