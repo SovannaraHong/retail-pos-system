@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Search, ClipboardList, Filter } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Plus,
+  Search,
+  ClipboardList,
+  CheckCircle2,
+  Clock,
+  CircleDollarSign,
+  Truck,
+  Boxes,
+  RotateCcw,
+} from "lucide-react";
 import { PurchaseService } from "@/services/purchase-service";
 import { SupplierService } from "@/services/supplier-service";
 import type { Purchase, StorePurchasePayload } from "@/types/purchase";
@@ -10,6 +20,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useDebounce } from "@/hooks/use-debounce";
 import { TableSkeleton } from "@/shared/page-skeleton";
 import { Pagination } from "@/shared/pagination";
+import { money } from "@/libs/format";
 
 import { PurchaseTable } from "./purchase-table";
 import { PurchaseDrawer } from "./purchase-drawer";
@@ -89,7 +100,12 @@ export function PurchasesView() {
     fetchPurchases();
   }, [page, perPage, debouncedSearch, status, supplierId]);
 
-  // Handlers
+  // Compute stat highlights matching dashboard styling
+  const totalSpend = purchases.reduce((acc, p) => acc + (p.status !== "cancelled" ? p.total : 0), 0);
+  const totalPaid = purchases.reduce((acc, p) => acc + (p.status !== "cancelled" ? p.paid_amount : 0), 0);
+  const receivedCount = purchases.filter((p) => p.status === "received").length;
+  const orderedCount = purchases.filter((p) => p.status === "ordered").length;
+
   const handleCreate = async (payload: StorePurchasePayload) => {
     await PurchaseService.create(payload);
     fetchPurchases();
@@ -153,7 +169,62 @@ export function PurchasesView() {
         )}
       </div>
 
-      {/* Main Card */}
+      {/* Colorful Dashboard-style KPI Stat Cards */}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="flex items-center gap-4 rounded-2xl border border-[#e9eef7] bg-white p-5 shadow-[0_1px_3px_rgba(30,60,120,0.05)]">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#e8f0ff] text-[#2f6fe8]">
+            <CircleDollarSign size={26} strokeWidth={1.8} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-[#7d8aa1]">Total Purchases</p>
+            <p className="truncate text-2xl font-extrabold text-[#1c2740]">
+              {money(totalSpend)}
+            </p>
+            <p className="truncate text-[11px] font-semibold text-[#1f9d55]">Active volume</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 rounded-2xl border border-[#e9eef7] bg-white p-5 shadow-[0_1px_3px_rgba(30,60,120,0.05)]">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#e3f6ea] text-[#1f9d55]">
+            <CheckCircle2 size={26} strokeWidth={1.8} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-[#7d8aa1]">Received Shipments</p>
+            <p className="truncate text-2xl font-extrabold text-[#1c2740]">
+              {receivedCount}
+            </p>
+            <p className="truncate text-[11px] font-semibold text-[#1f9d55]">In stock</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 rounded-2xl border border-[#e9eef7] bg-white p-5 shadow-[0_1px_3px_rgba(30,60,120,0.05)]">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#fff1d8] text-[#e08a00]">
+            <Clock size={26} strokeWidth={1.8} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-[#7d8aa1]">Pending Delivery</p>
+            <p className="truncate text-2xl font-extrabold text-[#1c2740]">
+              {orderedCount}
+            </p>
+            <p className="truncate text-[11px] font-semibold text-[#e08a00]">Awaiting arrival</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 rounded-2xl border border-[#e9eef7] bg-white p-5 shadow-[0_1px_3px_rgba(30,60,120,0.05)]">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#efe8ff] text-[#7c4dd8]">
+            <Truck size={26} strokeWidth={1.8} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-[#7d8aa1]">Paid to Suppliers</p>
+            <p className="truncate text-2xl font-extrabold text-[#1c2740]">
+              {money(totalPaid)}
+            </p>
+            <p className="truncate text-[11px] font-semibold text-[#7c4dd8]">Settled payments</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Table Card */}
       <div className="rounded-2xl border border-[#e9eef7] bg-white p-5 shadow-[0_1px_3px_rgba(30,60,120,0.05)]">
         {/* Filters Bar */}
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
